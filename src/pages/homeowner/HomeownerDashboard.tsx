@@ -34,31 +34,32 @@ interface RecentMessage {
 }
 
 export function HomeownerDashboard() {
-  const { user, profile } = useUser();
+  const { user, profile, loading: userLoading } = useUser();
   const [stats, setStats] = useState<DashboardStats>({
     totalJobs: 0,
     activeJobs: 0,
     completedJobs: 0,
     pendingBids: 0,
   });
+  // const userId = localStorage.getItem('user_id');
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
   const [recentMessages, setRecentMessages] = useState<RecentMessage[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const userId = localStorage.getItem('user_id');
-    console.log("UserId: "+userId)
-    if (!userId) return;
+    
+    // console.log("UserId: "+userId)
+    if (!user || userLoading) return;
     // if (!profile) return;
 
     const fetchDashboardData = async () => {
-      setLoading(false);
+      setLoading(true);
       try {
         // 1. Fetch all jobs for stats
         const { data: jobsData, error: jobsError } = await supabase
           .from('jobs')
           .select('id, status')
-          .eq('homeowner_id', userId);
+          .eq('homeowner_id', user.id);
 
         if (jobsError) throw jobsError;
 
@@ -99,7 +100,7 @@ export function HomeownerDashboard() {
             created_at,
             bids(count)
           `)
-          .eq('homeowner_id', userId)
+          .eq('homeowner_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5);
 
@@ -150,7 +151,7 @@ export function HomeownerDashboard() {
             content,
             created_at
           `)
-          .eq('receiver_id', userId)
+          .eq('receiver_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5);
 
@@ -184,7 +185,7 @@ export function HomeownerDashboard() {
     };
 
     fetchDashboardData();
-  }, [user]);
+  }, [user,userLoading]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

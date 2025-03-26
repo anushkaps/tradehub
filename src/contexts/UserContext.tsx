@@ -330,6 +330,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.id);
       if (event === 'SIGNED_IN' && session?.user) {
+        localStorage.setItem('user_id', session.user.id);
         setUser(session.user as AuthUser);
         let prof = await fetchProfile(session.user.id);
         
@@ -404,6 +405,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out');
+        localStorage.removeItem('user_id');
         setUser(null);
         setProfile(null);
         setUserTypeState(null);
@@ -494,7 +496,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       
       if (data.user) {
         console.log('User signed in:', data.user.id);
-        localStorage.setItem('user_id', data.user.id);
+        // localStorage.setItem('user_id', data.user.id);
         let prof = await fetchProfile(data.user.id);
         
         if (!prof) {
@@ -649,7 +651,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       console.log('Signing out user');
       localStorage.removeItem('sb-ewfhwbpmhfpzknnbotdm-auth-token');
-      localStorage.removeItem('user_id');
       localStorage.removeItem('lastUserType');
       const { error } = await supabase.auth.signOut();
       window.location.reload();
