@@ -8,11 +8,11 @@ interface ProfileData {
   last_name: string;
   email: string;
   phone: string;
-  address: string;
+  address: string;    // Keep this if your "profiles" table has an "address" column
   city: string;
   state: string;
-  zip_code: string;
-  profile_image_url: string | null;
+  zip_code: string;   // Will be saved in the "postcode" column
+  profile_image_url: string | null; // We'll fetch/store from "avatar_url" in DB
 }
 
 const HomeownerProfile: React.FC = () => {
@@ -31,26 +31,30 @@ const HomeownerProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Password change states
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  
+  // Tab state
   const [activeTab, setActiveTab] = useState('profile');
+  
+  // Delete account states
+  const [showDeletePrompt, setShowDeletePrompt] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
   
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          // Get user email from auth
-          setProfileData(prev => ({ ...prev, email: user.email || '' }));
-          
-          // Get profile data
+        if (user && user.email) {
+          // Fetch from "profiles" by matching the user's email
           const { data, error } = await supabase
-            .from('homeowner_profiles')
+            .from('profiles')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('email', user.email.toLowerCase())
             .single();
           
           if (error) {
@@ -59,6 +63,7 @@ const HomeownerProfile: React.FC = () => {
           }
           
           if (data) {
+            // Map DB columns to our state shape
             setProfileData(prev => ({
               ...prev,
               first_name: data.first_name || '',
@@ -67,8 +72,9 @@ const HomeownerProfile: React.FC = () => {
               address: data.address || '',
               city: data.city || '',
               state: data.state || '',
-              zip_code: data.zip_code || '',
-              profile_image_url: data.profile_image_url
+              zip_code: data.postcode || '',        // "postcode" in DB
+              profile_image_url: data.avatar_url || null, // "avatar_url" in DB
+              email: user.email || ''
             }));
           }
         }
@@ -78,7 +84,6 @@ const HomeownerProfile: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchProfile();
   }, []);
 
@@ -93,11 +98,11 @@ const HomeownerProfile: React.FC = () => {
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !user.email) throw new Error('User not authenticated');
       
-      if (!user) throw new Error('User not authenticated');
-      
+      // Update "profiles" by matching user's email
       const { error } = await supabase
-        .from('homeowner_profiles')
+        .from('profiles')
         .update({
           first_name: profileData.first_name,
           last_name: profileData.last_name,
@@ -105,9 +110,9 @@ const HomeownerProfile: React.FC = () => {
           address: profileData.address,
           city: profileData.city,
           state: profileData.state,
-          zip_code: profileData.zip_code
+          postcode: profileData.zip_code // "zip_code" in UI, "postcode" in DB
         })
-        .eq('user_id', user.id);
+        .eq('email', user.email.toLowerCase());
       
       if (error) throw error;
       
@@ -128,19 +133,34 @@ const HomeownerProfile: React.FC = () => {
       setPasswordError('New passwords do not match');
       return;
     }
-    
     if (newPassword.length < 8) {
       setPasswordError('Password must be at least 8 characters long');
       return;
     }
-    
     setUpdating(true);
     
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !user.email) {
+        setPasswordError('User not authenticated or email is missing');
+        setUpdating(false);
+        return;
+      }
+      // Re-authenticate using current password
+      const { error: reAuthError } = await supabase.auth.signInWithPassword({
+        email: user.email.toLowerCase(),
+        password: currentPassword,
       });
       
+      if (reAuthError) {
+        setPasswordError('Current password is incorrect');
+        setUpdating(false);
+        return;
+      }
+      // Update the password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
       if (error) throw error;
       
       toast.success('Password updated successfully!');
@@ -158,17 +178,15 @@ const HomeownerProfile: React.FC = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
     setUploadingImage(true);
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) throw new Error('User not authenticated');
+      if (!user || !user.email) throw new Error('User not authenticated');
       
       // Upload image to storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const fileName = `${user.email}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `profile-images/${fileName}`;
       
       const { error: uploadError } = await supabase.storage
@@ -184,11 +202,11 @@ const HomeownerProfile: React.FC = () => {
       
       const publicUrl = urlData.publicUrl;
       
-      // Update profile with new image URL
+      // Update "profiles" table with the new image URL
       const { error: updateError } = await supabase
-        .from('homeowner_profiles')
-        .update({ profile_image_url: publicUrl })
-        .eq('user_id', user.id);
+        .from('profiles')
+        .update({ avatar_url: publicUrl }) // store in "avatar_url" column
+        .eq('email', user.email.toLowerCase());
       
       if (updateError) throw updateError;
       
@@ -201,6 +219,76 @@ const HomeownerProfile: React.FC = () => {
       toast.error('Failed to upload image. Please try again.');
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  // Use Vite environment variables in your delete function
+  const deleteAuthUser = async (userId: string) => {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
+      }
+    });
+    return response;
+  };
+
+  const handleAccountDeletion = async () => {
+    setUpdating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !user.email) {
+        toast.error('User not authenticated');
+        setUpdating(false);
+        return;
+      }
+      // Re-authenticate using the entered delete password
+      const { error: reAuthError } = await supabase.auth.signInWithPassword({
+        email: user.email.toLowerCase(),
+        password: deletePassword,
+      });
+      if (reAuthError) {
+        toast.error('Incorrect password. Account deletion aborted.');
+        setUpdating(false);
+        return;
+      }
+      // Delete the user's row from the "profiles" table
+      const { error: deleteProfileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('email', user.email.toLowerCase());
+      if (deleteProfileError) {
+        toast.error('Error deleting profile data.');
+        setUpdating(false);
+        return;
+      }
+      // Delete the user from Supabase Auth (frontend only, insecure)
+      const authResponse = await deleteAuthUser(user.id);
+      if (!authResponse.ok) {
+        toast.error('Error deleting authentication data.');
+        setUpdating(false);
+        return;
+      }
+      // Sign the user out
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        toast.error('Error signing out.');
+        setUpdating(false);
+        return;
+      }
+      toast.success('Account deleted successfully!');
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error('Failed to delete account. Please try again.');
+    } finally {
+      setUpdating(false);
+      setShowDeletePrompt(false);
+      setDeletePassword('');
     }
   };
 
@@ -476,7 +564,6 @@ const HomeownerProfile: React.FC = () => {
                       />
                     </div>
                   </div>
-                  
                   <div>
                     <label htmlFor="new_password" className="block text-sm font-medium text-gray-700 mb-1">
                       New Password
@@ -498,7 +585,6 @@ const HomeownerProfile: React.FC = () => {
                     </div>
                     <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long</p>
                   </div>
-                  
                   <div>
                     <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1">
                       Confirm New Password
@@ -520,7 +606,7 @@ const HomeownerProfile: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="flex justify-end">
+                <div className="flex justify-end mb-6">
                   <button
                     type="submit"
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -530,7 +616,6 @@ const HomeownerProfile: React.FC = () => {
                   </button>
                 </div>
               </form>
-              
               <div className="mt-8 border-t border-gray-200 pt-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Account Security</h3>
                 
@@ -566,19 +651,37 @@ const HomeownerProfile: React.FC = () => {
                     Set Up
                   </button>
                 </div>
-                
-                <div className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Account Deletion</p>
-                    <p className="text-sm text-gray-500">Permanently delete your account and all data</p>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Account Deletion</p>
+                  <p className="text-sm text-gray-500">Permanently delete your account and all data</p>
+                </div>
+                {showDeletePrompt ? (
+                  <div className="flex flex-col">
+                    <input
+                      type="password"
+                      placeholder="Enter password"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      className="mb-2 px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAccountDeletion}
+                      className="inline-flex items-center px-3 py-1.5 border border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      disabled={updating}
+                    >
+                      {updating ? 'Deleting...' : 'Confirm Delete'}
+                    </button>
                   </div>
+                ) : (
                   <button
                     type="button"
-                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    onClick={() => setShowDeletePrompt(true)}
+                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                   >
                     Delete Account
                   </button>
-                </div>
+                )}
               </div>
             </div>
           )}
