@@ -273,12 +273,12 @@ export function ProfessionalDashboard() {
     {
       label: 'Update Profile',
       icon: <Settings className="w-5 h-5 text-gray-400" />,
-      path: '/settings',
+      path: '/professional/profile',
     },
     {
       label: 'Browse Jobs',
       icon: <Briefcase className="w-5 h-5 text-gray-400" />,
-      path: '/professional/browse-jobs',
+      path: '/professional/find-jobs',
     },
     {
       label: 'View Messages',

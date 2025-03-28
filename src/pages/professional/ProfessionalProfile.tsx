@@ -253,7 +253,7 @@ const ProfessionalProfile: React.FC = () => {
     }
   };
 
-  // 1) Use environment variables for your service role key
+  // Delete Auth User using environment variables for your service role key
   const deleteAuthUser = async (userId: string) => {
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
     const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY; 
@@ -297,7 +297,6 @@ const ProfessionalProfile: React.FC = () => {
         setUpdating(false);
         return;
       }
-
       // (Optional) Delete from "professionals" if needed:
       // const { error: deleteProfessionalError } = await supabase
       //   .from('professionals')
@@ -308,23 +307,20 @@ const ProfessionalProfile: React.FC = () => {
       //   setUpdating(false);
       //   return;
       // }
-
-      // 2) Delete the user from Supabase Auth (frontend-only, insecure in production)
+      // Delete the user from Supabase Auth (frontend-only, insecure in production)
       const authResponse = await deleteAuthUser(user.id);
       if (!authResponse.ok) {
         toast.error('Error deleting authentication data.');
         setUpdating(false);
         return;
       }
-
-      // 3) Sign the user out
+      // Sign the user out
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) {
         toast.error('Error signing out.');
         setUpdating(false);
         return;
       }
-
       toast.success('Account deleted successfully!');
       window.location.href = '/';
     } catch (error) {
@@ -675,119 +671,156 @@ const ProfessionalProfile: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          )}
 
-              <div className="mt-8 border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Security Settings</h3>
-                <form onSubmit={handlePasswordChange}>
-                  {passwordError && (
-                    <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md">
-                      {passwordError}
-                    </div>
-                  )}
-                  <div className="space-y-4 mb-6">
-                    <div>
-                      <label htmlFor="current_password" className="block text-sm font-medium text-gray-700 mb-1">
-                        Current Password
-                      </label>
-                      <div className="relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <FaLock className="text-gray-400" />
-                        </div>
-                        <input
-                          type="password"
-                          name="current_password"
-                          id="current_password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label htmlFor="new_password" className="block text-sm font-medium text-gray-700 mb-1">
-                        New Password
-                      </label>
-                      <div className="relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <FaLock className="text-gray-400" />
-                        </div>
-                        <input
-                          type="password"
-                          name="new_password"
-                          id="new_password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                          minLength={8}
-                        />
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long</p>
-                    </div>
-                    <div>
-                      <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1">
-                        Confirm New Password
-                      </label>
-                      <div className="relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <FaLock className="text-gray-400" />
-                        </div>
-                        <input
-                          type="password"
-                          name="confirm_password"
-                          id="confirm_password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          required
-                        />
-                      </div>
-                    </div>
+          {activeTab === 'security' && (
+            <div className="p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Change Password</h3>
+              <form onSubmit={handlePasswordChange}>
+                {passwordError && (
+                  <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md">
+                    {passwordError}
                   </div>
-                  <div className="flex justify-end mb-6">
-                    <button
-                      type="submit"
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                      disabled={updating}
-                    >
-                      {updating ? 'Updating...' : 'Update Password'}
-                    </button>
-                  </div>
-                </form>
-                <div className="flex items-center justify-between py-3">
+                )}
+                <div className="space-y-4 mb-6">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Account Deletion</p>
-                    <p className="text-sm text-gray-500">Permanently delete your account and all data</p>
-                  </div>
-                  {showDeletePrompt ? (
-                    <div className="flex flex-col">
+                    <label htmlFor="current_password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Current Password
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FaLock className="text-gray-400" />
+                      </div>
                       <input
                         type="password"
-                        placeholder="Enter password"
-                        value={deletePassword}
-                        onChange={(e) => setDeletePassword(e.target.value)}
-                        className="mb-2 px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        name="current_password"
+                        id="current_password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
                       />
-                      <button
-                        type="button"
-                        onClick={handleAccountDeletion}
-                        className="inline-flex items-center px-3 py-1.5 border border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        disabled={updating}
-                      >
-                        {updating ? 'Deleting...' : 'Confirm Delete'}
-                      </button>
                     </div>
-                  ) : (
+                  </div>
+                  <div>
+                    <label htmlFor="new_password" className="block text-sm font-medium text-gray-700 mb-1">
+                      New Password
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FaLock className="text-gray-400" />
+                      </div>
+                      <input
+                        type="password"
+                        name="new_password"
+                        id="new_password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long</p>
+                  </div>
+                  <div>
+                    <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirm New Password
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FaLock className="text-gray-400" />
+                      </div>
+                      <input
+                        type="password"
+                        name="confirm_password"
+                        id="confirm_password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end mb-6">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    disabled={updating}
+                  >
+                    {updating ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+              </form>
+              
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Account Security</h3>
+                
+                <div className="bg-yellow-50 p-4 rounded-md mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-yellow-800">Security Recommendations</h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>Use a strong, unique password that you don't use elsewhere</li>
+                          <li>Enable two-factor authentication for additional security</li>
+                          <li>Never share your login credentials with anyone</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Two-Factor Authentication</p>
+                    <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Set Up
+                  </button>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Account Deletion</p>
+                  <p className="text-sm text-gray-500">Permanently delete your account and all data</p>
+                </div>
+                {showDeletePrompt ? (
+                  <div className="flex flex-col">
+                    <input
+                      type="password"
+                      placeholder="Enter password"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      className="mb-2 px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
                     <button
                       type="button"
-                      onClick={() => setShowDeletePrompt(true)}
-                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      onClick={handleAccountDeletion}
+                      className="inline-flex items-center px-3 py-1.5 border border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      disabled={updating}
                     >
-                      Delete Account
+                      {updating ? 'Deleting...' : 'Confirm Delete'}
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletePrompt(true)}
+                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Delete Account
+                  </button>
+                )}
               </div>
             </div>
           )}
