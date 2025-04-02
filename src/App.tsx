@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, Outlet, Link } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { HelmetProvider } from 'react-helmet-async';
 import 'react-toastify/dist/ReactToastify.css';
@@ -103,6 +103,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { GDPRPolicy } from './pages/GDPRPolicy';
 import { CookiePreferences } from './pages/CookiePreferences';
 
+import { PublicHomeownerProfile } from './pages/profiles/PublicHomeownerProfile';
+import { PublicProfessionalProfile } from './pages/profiles/PublicProfessionalProfile';
+
 // Updated AdminProtectedRoute using import.meta.env for Vite and a correct URL parameter
 function AdminProtectedRoute({ children }: { children: JSX.Element }) {
   const { secret } = useParams<{ secret: string }>();
@@ -124,6 +127,20 @@ const AdminLayout = () => {
     </div>
   );
 };
+
+function NotFound() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-4">404</h1>
+        <p className="text-xl mb-8">Page Not Found</p>
+        <Link to="/" className="bg-[#105298] text-white px-6 py-3 rounded-md hover:bg-[#0a407a] transition-colors">
+          Go Back Home
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   // Auto-logout after 30 minutes of inactivity
@@ -150,7 +167,7 @@ function App() {
               />
               <Routes>
                 {/* Public Routes */}
-                <Route path="/" element={<HomePage />} />
+                <Route path="/" element={<HomePage />} index />
                 <Route path="/test-connection" element={<TestConnection />} />
                 <Route path="/about-us" element={<AboutUs />} />
                 <Route path="/careers" element={<Careers />} />
@@ -304,7 +321,9 @@ function App() {
                 <Route path="/professional/how-it-works" element={<ProfessionalHowItWorks />} />
                 <Route path="/professional/find-jobs" element={<FindJobs />} />
                 <Route path="/professional/membership" element={<Subscription />} />
-
+                
+                <Route path="/h/:username" element={<PublicHomeownerProfile />} />
+                <Route path="/p/:username" element={<PublicProfessionalProfile />} />
                 {/* Protected Professional */}
                 <Route
                   path="/professional/professional-support"
@@ -449,6 +468,8 @@ function App() {
                 <Route path="/cookie-policy" element={<CookiePolicy />} />
                 <Route path="/gdpr-policy" element={<GDPRPolicy/>} />
                 <Route path="/cookie-preferences" element={<CookiePreferences/>} />
+                {/* Catch all route - 404 page */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>
           </UserProvider>

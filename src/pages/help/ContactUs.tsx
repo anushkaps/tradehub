@@ -65,7 +65,7 @@ export function ContactUs() {
                   <Phone className="w-6 h-6 text-[#105298] mr-4" />
                   <div>
                     <h3 className="font-semibold">Phone</h3>
-                    <p className="text-gray-600">0800 123 4567</p>
+                    <p className="text-gray-600">+44 (0) 2071 75729</p>
                   </div>
                 </div>
                 <div className="flex items-start">
@@ -79,7 +79,7 @@ export function ContactUs() {
                   <MapPin className="w-6 h-6 text-[#105298] mr-4" />
                   <div>
                     <h3 className="font-semibold">Address</h3>
-                    <p className="text-gray-600">123 Business Street<br />London, UK</p>
+                    <p className="text-gray-600">4th Floor, Silver Streams House<br />45 Fitzroy Street<br />London W1T 6EB</p>
                   </div>
                 </div>
               </div>
