@@ -14,12 +14,21 @@ export function PublicHomeownerProfile() {
 
   const fetchProfile = async () => {
     try {
-      const { data, error } = await supabase
+      // const { data, error } = await supabase
+      //   .from('profiles')
+      //   .select(`
+      //     *,
+      //     jobs:jobs(*),
+      //     reviews:reviews(*, professional:professional_profiles(*))
+      //   `)
+      //   .eq('username', username)
+      //   .eq('user_type', 'homeowner')
+      //   .single();
+      
+        const { data, error } = await supabase
         .from('profiles')
         .select(`
-          *,
-          jobs:jobs(*),
-          reviews:reviews(*, professional:professional_profiles(*))
+          *
         `)
         .eq('username', username)
         .eq('user_type', 'homeowner')

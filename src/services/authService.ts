@@ -9,6 +9,7 @@ interface SignUpOptions {
     user_type: UserType;
     first_name: string;
     last_name: string;
+    username: string;
     postcode: string;
     phone: string;
     // Professional specific fields
@@ -102,7 +103,10 @@ export const signUpWithEmail = async (
       }
     });
 
-    if (signUpError) throw signUpError;
+    if (signUpError){
+      console.error('Error signing up:', signUpError);
+      throw signUpError;
+    }
 
     if (authData.user) {
       // Create profile with all form data
@@ -112,6 +116,7 @@ export const signUpWithEmail = async (
         user_type: options.data.user_type,
         first_name: options.data.first_name,
         last_name: options.data.last_name,
+        username: options.data.username,
         postcode: options.data.postcode,
         phone: options.data.phone,
         confirmed: false,
