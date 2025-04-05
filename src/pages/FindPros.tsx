@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapPin, Star, MessageSquare, Phone } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { supabase } from '../services/supabaseClient';
 
 export function FindPros() {
   const [filters, setFilters] = useState({
@@ -9,6 +10,44 @@ export function FindPros() {
     rating: '',
     availability: ''
   });
+
+  interface Professional {
+    services_offered: string;
+    company_summary: string;
+    city: string;
+    profile: {
+      profile_image_url: string;
+      username: string;
+      first_name: string;
+    };
+    rating: number;
+    reviewCount: number;
+    trade: string;
+    location: string;
+    description: string;
+    specialties: string[];
+  }
+
+  const [professionals, setProfessionals] = useState<Professional[]>([])
+
+  useEffect(()=>{
+    fetchProfessionals()
+  },[professionals])
+
+  async function fetchProfessionals() {
+    try{
+      const {data,error} = await supabase.from("professionals").select("*,profile:profiles(*)").eq("company_status", "Active").order("created_at", { ascending: false });
+      if (error) {
+        throw error;
+      }
+      if (data) {
+        setProfessionals(data);
+      }
+
+    }catch (error) {
+      console.error('Error fetching professionals:', error);
+    }
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -81,37 +120,47 @@ export function FindPros() {
             <div className="p-6">
               <div className="flex items-start">
                 <img
-                  src={pro.image}
-                  alt={pro.name}
+                  src={pro.profile.profile_image_url}
+                  alt={pro.profile.username}
                   className="w-24 h-24 rounded-lg object-cover"
                 />
                 <div className="ml-4 flex-grow">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold">{pro.name}</h3>
+                    <h3 className="text-xl font-semibold">{pro.profile.first_name}</h3>
                     <div className="flex items-center">
-                      <Star className="w-5 h-5 text-yellow-400" />
+                      {/* <Star className="w-5 h-5 text-yellow-400" />
                       <span className="ml-1 font-semibold">{pro.rating}</span>
-                      <span className="text-gray-500 text-sm ml-1">({pro.reviewCount})</span>
+                      <span className="text-gray-500 text-sm ml-1">({pro.reviewCount})</span> */}
                     </div>
                   </div>
                   <p className="text-gray-600">{pro.trade}</p>
                   <div className="flex items-center text-gray-500 text-sm mt-2">
                     <MapPin className="w-4 h-4 mr-1" />
-                    {pro.location}
+                    {pro.city}
                   </div>
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-gray-600">{pro.description}</p>
+                <p className="text-gray-600">{pro.company_summary}</p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {pro.specialties.map((specialty, specIndex) => (
+                  {/* {pro.services_offered.map((specialty, specIndex) => (
                     <span
                       key={specIndex}
                       className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
                     >
                       {specialty}
                     </span>
-                  ))}
+                  ))} */}
+                  {
+                    pro.services_offered.split(",").map((specialty: string, specIndex) => (
+                      <span
+                        key={specIndex}
+                        className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
+                      >
+                        {specialty}
+                      </span>
+                    ))
+                  }
                 </div>
               </div>
               <div className="mt-6 flex items-center justify-between">
@@ -152,47 +201,4 @@ const serviceTypes = [
   'HVAC',
   'Landscaping',
   'Home Maintenance'
-];
-
-const professionals = [
-  {
-    name: 'John Smith',
-    trade: 'Master Plumber',
-    rating: 4.9,
-    reviewCount: 127,
-    location: 'Manchester, M1',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80',
-    description: 'Experienced plumber specializing in residential and commercial plumbing services. Available for emergency repairs.',
-    specialties: ['Emergency Repairs', 'Bathroom Installation', 'Boiler Services']
-  },
-  {
-    name: 'Sarah Williams',
-    trade: 'Electrician',
-    rating: 4.8,
-    reviewCount: 93,
-    location: 'Liverpool, L1',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80',
-    description: 'NICEIC registered electrician with over 10 years of experience in domestic and commercial installations.',
-    specialties: ['Rewiring', 'Safety Inspections', 'Smart Home Installation']
-  },
-  {
-    name: 'Mike Johnson',
-    trade: 'Carpenter',
-    rating: 4.7,
-    reviewCount: 85,
-    location: 'Leeds, LS1',
-    image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80',
-    description: 'Skilled carpenter specializing in custom furniture and kitchen installations.',
-    specialties: ['Custom Furniture', 'Kitchen Fitting', 'Door Installation']
-  },
-  {
-    name: 'Emma Brown',
-    trade: 'Painter & Decorator',
-    rating: 5.0,
-    reviewCount: 64,
-    location: 'Birmingham, B1',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80',
-    description: 'Professional painter offering high-quality interior and exterior painting services.',
-    specialties: ['Interior Painting', 'Wallpaper Installation', 'Decorative Finishes']
-  }
 ];

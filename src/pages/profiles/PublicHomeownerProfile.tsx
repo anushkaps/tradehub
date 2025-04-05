@@ -27,14 +27,13 @@ export function PublicHomeownerProfile() {
       
         const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          *
-        `)
+        .select("*,jobs(*),reviews(*)")
         .eq('username', username)
         .eq('user_type', 'homeowner')
         .single();
 
       if (error) throw error;
+      console.log('Profile data:', data);
       setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -72,10 +71,7 @@ export function PublicHomeownerProfile() {
             )}
             <div className="ml-6">
               <h1 className="text-2xl font-bold">
-                {profile.display_name_privacy === 'initials' 
-                  ? `${profile.first_name[0]}. ${profile.last_name[0]}.`
-                  : profile.first_name
-                }
+                {profile.first_name} {profile.last_name}
               </h1>
               <div className="flex items-center text-gray-600 mt-2">
                 <MapPin className="w-4 h-4 mr-2" />
@@ -118,7 +114,7 @@ export function PublicHomeownerProfile() {
         </div>
 
         {/* Jobs Posted */}
-        {profile.show_jobs && profile.jobs?.length > 0 && (
+        {profile.jobs && profile.jobs?.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4">Jobs Posted</h2>
             <div className="space-y-4">
@@ -127,7 +123,10 @@ export function PublicHomeownerProfile() {
                   <h3 className="font-medium">{job.title}</h3>
                   <div className="text-sm text-gray-600 mt-1">
                     <span className="mr-4">{job.trade_type}</span>
-                    <span>{new Date(job.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="text-sm text-gray-500 mt-2">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    {new Date(job.created_at).toLocaleDateString()}
                   </div>
                   <span className={`inline-block px-2 py-1 text-xs rounded-full mt-2 ${
                     job.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -143,7 +142,7 @@ export function PublicHomeownerProfile() {
         )}
 
         {/* Reviews Given */}
-        {profile.reviews?.length > 0 && (
+        {/* {profile.reviews?.length > 0 && ( */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold mb-4">Reviews Given</h2>
             <div className="space-y-6">
@@ -167,7 +166,7 @@ export function PublicHomeownerProfile() {
               ))}
             </div>
           </div>
-        )}
+        {/* )} */}
       </div>
     </div>
   );

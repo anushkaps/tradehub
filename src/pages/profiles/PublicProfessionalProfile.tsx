@@ -14,18 +14,28 @@ export function PublicProfessionalProfile() {
 
   const fetchProfile = async () => {
     try {
+      // const { data, error } = await supabase
+      //   .from('professional_profiles')
+      //   .select(`
+      //     *,
+      //     profile:profiles(*),
+      //     reviews:reviews(*),
+      //     portfolio:portfolio(*)
+      //   `)
+      //   .eq('username', username)
+      //   .single();
       const { data, error } = await supabase
-        .from('professional_profiles')
+        .from('professionals')
         .select(`
           *,
           profile:profiles(*),
-          reviews:reviews(*),
-          portfolio:portfolio(*)
+          reviews:reviews(*)
         `)
         .eq('username', username)
         .single();
 
       if (error) throw error;
+      console.log('Profile data:', data);
       setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);

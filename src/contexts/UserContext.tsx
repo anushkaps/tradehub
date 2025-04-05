@@ -18,6 +18,7 @@ export interface UserProfile {
   postcode?: string;
   created_at?: string;
   updated_at?: string;
+  username?: string;
   // Professional specific fields
   company_name?: string;
   business_registration?: string;
@@ -605,6 +606,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               .upsert({
                 id: authData.user.id,
                 ...extraData,
+                username: profileData?.username || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               })

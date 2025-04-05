@@ -11,6 +11,7 @@ const ProfessionalSignUp = () => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -51,6 +52,7 @@ const ProfessionalSignUp = () => {
       last_name: formData.lastName,
       phone: formData.phone,
       postcode: formData.postcode,
+      username: formData.username,
     });
 
     if (!response.success) {
@@ -125,6 +127,27 @@ const ProfessionalSignUp = () => {
                 </div>
               </div>
             </div>
+
+            <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                  UserName
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={handleChange}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm 
+                      focus:outline-none focus:ring-[#105298] focus:border-[#105298]"
+                  />
+                </div>
+              </div>
 
             {/* Company Name */}
             <div>
