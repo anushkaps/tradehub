@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapPin, Star, MessageSquare, Phone } from 'lucide-react';
+import { MapPin, MessageSquare, Phone } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '../services/supabaseClient';
 

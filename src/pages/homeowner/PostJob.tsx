@@ -1,7 +1,68 @@
 import React from 'react';
 import { ClipboardList, Clock, Users, CheckCircle } from 'lucide-react';
+import { supabase } from '../../services/supabaseClient';
+
+interface JobData{
+  title: string;
+  serviceType: string;
+  location: string;
+  description: string;
+  budgetRange: string;
+  timeline: string;
+  photos?: File[];
+}
 
 export function PostJob() {
+
+  const [title, setTitle] = React.useState<string>('');
+  const [serviceType, setServiceType] = React.useState<string>('');
+  const [location, setLocation] = React.useState<string>('');
+  const [description, setDescription] = React.useState<string>('');
+  const [budgetRange, setBudgetRange] = React.useState<string>('');
+  const [timeline, setTimeline] = React.useState<string>('');
+  const [photos, setPhotos] = React.useState<File[]>([]);
+
+  const handleDataSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const jobData: JobData = {
+      title,
+      serviceType,
+      location,
+      description,
+      budgetRange,
+      timeline,
+      photos
+    };
+    const {data,error} = await supabase.from('jobs').insert([
+      {
+        title: jobData.title,
+        trade_type: jobData.serviceType,
+        location: jobData.location,
+        description: jobData.description,
+        budgetRange: jobData.budgetRange,
+        timeline: jobData.timeline,
+        status: 'open',
+        bids: 0,
+        homeowner_id: localStorage.getItem('user_id'),
+      }
+    ])
+    if (error) {
+      console.error('Error inserting job data:', error);
+    } else {
+      console.log('Job data inserted successfully:', data);
+    }
+    if (photos.length > 0) {
+      const { data: uploadData, error: uploadError } = await supabase.storage.from('post-job').upload(`${photos[0].name}`, photos[0]);
+      if (uploadError) {
+        console.error('Error uploading photo:', uploadError);
+      } else {
+        console.log('Photo uploaded successfully:', uploadData);
+      }
+    }
+  }
+
+  
+
   return (
     <div className="py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,11 +85,22 @@ export function PostJob() {
 
         <div className="bg-white rounded-lg shadow-md p-8">
           <h2 className="text-2xl font-bold mb-6">Job Details</h2>
-          <form className="space-y-6">
+          <form onSubmit={handleDataSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
+                <label className="block text-sm font-medium text-gray-700">Job Title</label>
+                <input
+                  type="text"
+                  placeholder="Enter job title"
+                  onChange={(e) => setTitle(e.target.value)}
+                  value={title}
+                  name="title"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Service Type</label>
-                <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]">
+                <select value={serviceType} onChange={e=>setServiceType(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]">
                   <option>Select a service</option>
                   {services.map((service, index) => (
                     <option key={index}>{service}</option>
@@ -40,6 +112,9 @@ export function PostJob() {
                 <input
                   type="text"
                   placeholder="Enter your postcode"
+                  onChange={(e) => setLocation(e.target.value)}
+                  value={location}
+                  name="location"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]"
                 />
               </div>
@@ -50,6 +125,9 @@ export function PostJob() {
               <textarea
                 rows={4}
                 placeholder="Describe your project in detail..."
+                onChange={(e) => setDescription(e.target.value)}
+                value={description}
+                name="description"
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]"
               ></textarea>
             </div>
@@ -57,7 +135,7 @@ export function PostJob() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Budget Range</label>
-                <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]">
+                <select onChange={(e)=>setBudgetRange(e.target.value)} value={budgetRange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]">
                   <option>Select budget range</option>
                   <option>Under £500</option>
                   <option>£500 - £1,000</option>
@@ -67,7 +145,7 @@ export function PostJob() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Timeline</label>
-                <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]">
+                <select onChange={(e)=>setTimeline(e.target.value)} value={timeline} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#105298] focus:ring-[#105298]">
                   <option>Select timeline</option>
                   <option>As soon as possible</option>
                   <option>Within 1 week</option>
@@ -102,7 +180,7 @@ export function PostJob() {
                       className="relative cursor-pointer bg-white rounded-md font-medium text-[#105298] hover:text-[#0c3d72] focus-within:outline-none"
                     >
                       <span>Upload files</span>
-                      <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple />
+                      <input id="file-upload" onChange={(e) => e.target.files && setPhotos(Array.from(e.target.files))} name="file-upload" type="file" className="sr-only" multiple />
                     </label>
                     <p className="pl-1">or drag and drop</p>
                   </div>
