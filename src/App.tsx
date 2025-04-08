@@ -105,6 +105,7 @@ import { CookiePreferences } from './pages/CookiePreferences';
 
 import { PublicHomeownerProfile } from './pages/profiles/PublicHomeownerProfile';
 import { PublicProfessionalProfile } from './pages/profiles/PublicProfessionalProfile';
+import Booking from './pages/professional/Booking';
 
 // Updated AdminProtectedRoute using import.meta.env for Vite and a correct URL parameter
 function AdminProtectedRoute({ children }: { children: JSX.Element }) {
@@ -324,6 +325,7 @@ function App() {
                 
                 <Route path="/h/:username" element={<PublicHomeownerProfile />} />
                 <Route path="/p/:username" element={<PublicProfessionalProfile />} />
+                <Route path='/booking/:proid' element={<Booking/>}/>
                 {/* Protected Professional */}
                 <Route
                   path="/professional/professional-support"

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Shield, Star, Calendar, MapPin, Phone, Mail, CheckCircle, Clock, Award, Globe, PenTool as Tool } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
 
@@ -7,6 +7,8 @@ export function PublicProfessionalProfile() {
   const { username } = useParams();
   const [profile, setProfile] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     fetchProfile();
@@ -92,6 +94,13 @@ export function PublicProfessionalProfile() {
                   <button className="mt-4 bg-[#e20000] text-white px-6 py-2 rounded-md hover:bg-[#cc0000]">
                     Contact Pro
                   </button>
+                  <div>
+                  <button onClick={()=>{
+                    navigate(`/booking/${profile.id}`);
+                  }} className="mt-4 bg-[#e20000] text-white px-6 py-2 rounded-md hover:bg-[#cc0000]">
+                    Book Now
+                  </button>
+                  </div>
                 </div>
               </div>
 

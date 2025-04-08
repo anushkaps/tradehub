@@ -1,6 +1,7 @@
 import React from 'react';
 import { ClipboardList, Clock, Users, CheckCircle } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 interface JobData{
   title: string;
@@ -21,6 +22,8 @@ export function PostJob() {
   const [budgetRange, setBudgetRange] = React.useState<string>('');
   const [timeline, setTimeline] = React.useState<string>('');
   const [photos, setPhotos] = React.useState<File[]>([]);
+
+  const navigate = useNavigate();
 
   const handleDataSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +62,8 @@ export function PostJob() {
         console.log('Photo uploaded successfully:', uploadData);
       }
     }
+    navigate('/homeowner/dashboard');
+
   }
 
   
