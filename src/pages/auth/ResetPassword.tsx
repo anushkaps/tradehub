@@ -35,7 +35,8 @@ export function ResetPassword() {
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         // redirectTo: `${window.location.origin}/${existingUserType || userType || 'auth'}/update-password`,
-        redirectTo: `${window.location.origin}/auth/update-password`,
+        // redirectTo: `${window.location.origin}/auth/update-password`,
+        redirectTo: 'https://www.tradehub24.com/auth/update-password'
       });
       
       if (error) throw error;

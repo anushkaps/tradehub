@@ -329,6 +329,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     initAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setLoading(false)
       console.log('Auth state changed:', event, session?.user?.id);
       if (event === 'SIGNED_IN' && session?.user) {
         localStorage.setItem('user_id', session.user.id);

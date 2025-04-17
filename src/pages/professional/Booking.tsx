@@ -72,6 +72,8 @@ function Booking() {
         ]);
 
       if (error) throw error;
+
+      
       
       toast.success('Booking request sent successfully!');
       setNotes('');

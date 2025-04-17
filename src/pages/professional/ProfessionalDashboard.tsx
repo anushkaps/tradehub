@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Bell, MessageSquare, Briefcase, Star, Settings, ChevronRight } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useUser } from '../../contexts/UserContext';
 import { supabase } from '../../services/supabaseClient';
+import { toast } from 'react-toastify';
 
-interface JobRequest {
+interface Review {
   id: string;
-  title: string;
-  location: string;
+  rating: number;
+  review_text: string;
   created_at: string;
-  budget: number;
   homeowner: {
     first_name: string;
     last_name: string;
@@ -29,22 +28,20 @@ interface Message {
   };
 }
 
-interface Review {
+interface Job {
   id: string;
-  rating: number;
-  comment: string;
+  title: string;
+  location: string;
   created_at: string;
-  homeowner: {
-    first_name: string;
-    last_name: string;
-  };
+  budgetRange: string;
+  trade_type: string;
+  status: string;
+  job_id: string;
 }
 
 export function ProfessionalDashboard() {
-  const { user, profile } = useUser();
-  const navigate = useNavigate();
-
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [stats, setStats] = useState({
     newLeads: 0,
     activeJobs: 0,
@@ -52,158 +49,212 @@ export function ProfessionalDashboard() {
     rating: 0,
   });
 
-  const [jobRequests, setJobRequests] = useState<JobRequest[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [recentJobs, setRecentJobs] = useState<Job[]>([])
+
+  const handleBookingAction = async (bookingId: string, status: 'accepted' | 'rejected') => {
+    try {
+      setActionLoading(bookingId);
+      
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+
+      const { data: bookingData } = await supabase
+        .from('bookings')
+        .select(`job_id`)
+        .eq('id', bookingId)
+        .single();
+      if (!bookingData) throw new Error('Booking not found');
+
+      const { error: jobError } = await supabase.from('jobs').update({status: 'ongoing'}).eq('id', bookingData.job_id);
+      if (jobError) throw jobError;
+
+      // Update local state to reflect the change
+      setJobs(prevJobs =>
+        prevJobs.filter(job => job.id !== bookingId)
+      );
+
+      // Refresh stats after action
+      fetchStats();
+    } catch (error) {
+      console.error(`Error ${status === 'accepted' ? 'accepting' : 'rejecting'} booking:`, error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      const { count: newLeadsCount } = await supabase
+        .from('jobs')
+        .select('id', { count: 'exact' })
+        .eq('status', 'open');
+
+      const { count: activeJobsCount } = await supabase
+        .from('jobs')
+        .select('id', { count: 'exact' })
+        .eq('status', 'in_progress');
+
+      const { count: messagesCount } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact' })
+        .eq('receiver_id', userId);
+
+      const { data: reviewsData } = await supabase
+        .from('reviews')
+        .select('rating')
+        .eq('professional_id', userId);
+
+      let avgRating = 0;
+      if (reviewsData && reviewsData.length > 0) {
+        const sum = reviewsData.reduce((acc, rev) => acc + rev.rating, 0);
+        avgRating = sum / reviewsData.length;
+      }
+
+      setStats({
+        newLeads: newLeadsCount || 0,
+        activeJobs: activeJobsCount || 0,
+        messages: messagesCount || 0,
+        rating: parseFloat(avgRating.toFixed(1)),
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
 
   useEffect(() => {
-    if (!user) return;
-
     const fetchDashboardData = async () => {
-      setLoading(true);
       try {
-        // 1) Fetch job requests
-        const { data: jobsData, error: jobsError, count: _unused } = await supabase
-          .from('jobs')
-          .select(
-            `
-              id,
-              title,
-              location,
-              created_at,
-              budget,
-              homeowner:profiles!homeowner_id(first_name, last_name)
-            `
-          )
-          .eq('status', 'open')
-          .order('created_at', { ascending: false })
-          .limit(3);
+        setLoading(true);
+        const userId = (await supabase.auth.getUser()).data.user?.id;
+        if (!userId) return;
 
-        if (jobsError) throw jobsError;
+        // Fetch professional profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        setProfile(profileData);
 
-        // Convert any array-based homeowner data to a single object
-        const transformedJobsData: JobRequest[] = (jobsData || []).map((job: any) => {
-          // Supabase might return homeowner as an array if you used "profiles!homeowner_id(...)"
-          const singleHomeowner = Array.isArray(job.homeowner) ? job.homeowner[0] : job.homeowner;
-          return {
-            id: job.id,
-            title: job.title,
-            location: job.location,
-            created_at: job.created_at,
-            budget: job.budget,
-            homeowner: {
-              first_name: singleHomeowner?.first_name || '',
-              last_name: singleHomeowner?.last_name || '',
-            },
-          };
-        });
-        setJobRequests(transformedJobsData);
+        // Get professional record
+        const { data: professionalData } = await supabase
+          .from('professionals')
+          .select('id')
+          .eq('user_id', userId)
+          .single();
 
-        // 2) Active jobs count
-        const { count: activeJobsCount, error: activeJobsError } = await supabase
-          .from('jobs')
-          .select('id', { count: 'exact' })
-          .eq('professional_id', user.id)
-          .eq('status', 'in_progress');
-
-        if (activeJobsError) throw activeJobsError;
-
-        // 3) New leads count
-        const { count: newLeadsCount, error: newLeadsError } = await supabase
-          .from('jobs')
-          .select('id', { count: 'exact' })
-          .eq('status', 'open');
-        if (newLeadsError) throw newLeadsError;
-
-        // 4) Fetch messages
-        const { data: messagesData, error: messagesError } = await supabase
-          .from('messages')
-          .select(
-            `
-              id,
-              sender_id,
-              content,
-              created_at,
-              sender:profiles!sender_id(first_name, last_name, avatar_url)
-            `
-          )
-          .eq('receiver_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(2);
-        if (messagesError) throw messagesError;
-
-        // Transform messages (handle array-based sender)
-        const formattedMessages: Message[] = (messagesData || []).map((msg: any) => {
-          const singleSender = Array.isArray(msg.sender) ? msg.sender[0] : msg.sender;
-          return {
-            id: msg.id,
-            sender_id: msg.sender_id,
-            content: msg.content,
-            created_at: msg.created_at,
-            sender: {
-              first_name: singleSender?.first_name || '',
-              last_name: singleSender?.last_name || '',
-              avatar_url: singleSender?.avatar_url || undefined,
-            },
-          };
-        });
-        setMessages(formattedMessages);
-
-        // 5) Unread messages count
-        const { count: messagesCount, error: messagesCountError } = await supabase
-          .from('messages')
-          .select('id', { count: 'exact' })
-          .eq('receiver_id', user.id)
-          .eq('read', false);
-        if (messagesCountError) throw messagesCountError;
-
-        // 6) Fetch reviews
-        const { data: reviewsData, error: reviewsError } = await supabase
-          .from('reviews')
-          .select(
-            `
-              id,
-              rating,
-              comment,
-              created_at,
-              homeowner:profiles!homeowner_id(first_name, last_name)
-            `
-          )
-          .eq('professional_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
-        if (reviewsError) throw reviewsError;
-
-        // Transform reviews (handle array-based homeowner)
-        const transformedReviews: Review[] = (reviewsData || []).map((r: any) => {
-          const singleHomeowner = Array.isArray(r.homeowner) ? r.homeowner[0] : r.homeowner;
-          return {
-            id: r.id,
-            rating: r.rating,
-            comment: r.comment,
-            created_at: r.created_at,
-            homeowner: {
-              first_name: singleHomeowner?.first_name || '',
-              last_name: singleHomeowner?.last_name || '',
-            },
-          };
-        });
-        setReviews(transformedReviews);
-
-        // Calculate average rating
-        let avgRating = 0;
-        if (transformedReviews.length > 0) {
-          const sum = transformedReviews.reduce((acc, rev) => acc + rev.rating, 0);
-          avgRating = sum / transformedReviews.length;
+        if (!professionalData?.id) {
+          console.error('Professional record not found');
+          return;
         }
 
-        // Update stats
-        setStats({
-          newLeads: newLeadsCount || 0,
-          activeJobs: activeJobsCount || 0,
-          messages: messagesCount || 0,
-          rating: parseFloat(avgRating.toFixed(1)),
-        });
+        // Fetch jobs with bookings
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from('bookings')
+          .select(`
+            id,
+            status,
+            created_at,
+            job_id,
+            jobs (
+              title,
+              location,
+              trade_type,
+              budgetRange
+            )
+          `)
+          .eq('professional_id', professionalData.id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+
+        if (bookingsError) {
+          console.error('Error fetching bookings:', bookingsError);
+          return;
+        }
+
+        const transformedJobs = (bookingsData || []).map(booking => ({
+          id: booking.id,
+          job_id: booking.job_id,
+          title: booking.jobs.title || '',
+          location: booking.jobs?.location || '',
+          created_at: booking.created_at,
+          budgetRange: booking.jobs?.budgetRange || '',
+          trade_type: booking.jobs?.trade_type || '',
+          status: booking.status,
+        }));
+
+        setJobs(transformedJobs);
+
+        // Fetch recent jobs
+        const { data: recentJobsData } = await supabase
+          .from('jobs')
+          .select(`
+            id,
+            title,
+            location,
+            created_at,
+            budgetRange,
+            trade_type,
+            status
+          `)
+          .eq('status', 'ongoing')
+          .order('created_at', { ascending: false })
+          .limit(3);
+        setRecentJobs((recentJobsData || []).map(job => ({
+          ...job,
+          job_id: job.id, // Assuming job_id can be set to id as a placeholder
+        })));
+
+        // Fetch messages
+        const { data: messagesData } = await supabase
+          .from('messages')
+          .select(`
+            id,
+            sender_id,
+            content,
+            created_at,
+            sender:profiles!sender_id (
+              first_name,
+              last_name,
+              avatar_url
+            )
+          `)
+          .eq('receiver_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(2);
+        setMessages(messagesData || []);
+
+        // Fetch reviews
+        const { data: reviewsData } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            rating,
+            review_text,
+            created_at,
+            homeowner:profiles!homeowner_id (
+              first_name,
+              last_name
+            )
+          `)
+          .eq('professional_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        setReviews(reviewsData || []);
+
+        await fetchStats();
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -212,7 +263,7 @@ export function ProfessionalDashboard() {
     };
 
     fetchDashboardData();
-  }, [user]);
+  }, []);
 
   const formatDate = (dateString: string) => {
     const now = new Date();
@@ -229,13 +280,6 @@ export function ProfessionalDashboard() {
     } else {
       return `${diffDays}d ago`;
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
   };
 
   const statItems = [
@@ -305,55 +349,8 @@ export function ProfessionalDashboard() {
         <title>Professional Dashboard | TradeHub24</title>
         <meta
           name="description"
-          content="Manage your trade services, bids, and client interactions from your TradeHub24 professional dashboard."
+          content="Manage your trade services, jobs, and client interactions from your TradeHub24 professional dashboard."
         />
-        <meta
-          name="keywords"
-          content="professional dashboard, tradehub24, manage bids"
-        />
-
-        {/* Open Graph */}
-        <meta
-          property="og:title"
-          content="Professional Dashboard | TradeHub24"
-        />
-        <meta
-          property="og:description"
-          content="Manage your trade services, bids, and client interactions from your TradeHub24 professional dashboard."
-        />
-        <meta property="og:type" content="website" />
-        <meta
-          property="og:url"
-          content="https://www.tradehub24.com/professional/dashboard"
-        />
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="Professional Dashboard | TradeHub24"
-        />
-        <meta
-          name="twitter:description"
-          content="Manage your trade services, bids, and client interactions from your TradeHub24 professional dashboard."
-        />
-
-        {/* JSON-LD */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            name: "Professional Dashboard | TradeHub24",
-            url: "https://www.tradehub24.com/professional/dashboard",
-            description:
-              "Manage your trade services, bids, and client interactions from your TradeHub24 professional dashboard.",
-            publisher: {
-              "@type": "Organization",
-              name: "TradeHub24",
-              url: "https://www.tradehub24.com",
-            },
-          })}
-        </script>
       </Helmet>
       <div className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -370,7 +367,9 @@ export function ProfessionalDashboard() {
               <div key={index} className="bg-white p-6 rounded-lg shadow-md">
                 <div className="flex items-center justify-between mb-4">
                   <div className={`p-2 rounded-lg ${stat.iconBg}`}>{stat.icon}</div>
-                  <span className={`text-sm font-medium ${stat.trend.color}`}>{stat.trend.value}</span>
+                  <span className={`text-sm font-medium ${stat.trend.color}`}>
+                    {stat.trend.value}
+                  </span>
                 </div>
                 <h3 className="text-2xl font-bold">{stat.value}</h3>
                 <p className="text-gray-600">{stat.label}</p>
@@ -379,26 +378,26 @@ export function ProfessionalDashboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Left Column: Job Requests & Messages */}
+            {/* Left Column: Jobs & Messages */}
             <div className="md:col-span-2">
-              {/* Recent Job Requests */}
+              {/* Invitations */}
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold">Recent Job Requests</h2>
+                  <h2 className="text-xl font-bold">Invitations</h2>
                   <Link
                     to="/professional/browse-jobs"
-                    className="text-[#105298] hover:text-[#0c3d72] text-sm font-medium"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
                     View all
                   </Link>
                 </div>
                 <div className="space-y-6">
-                  {jobRequests.length === 0 ? (
+                  {jobs.length === 0 ? (
                     <div className="text-center text-gray-500 py-4">
-                      No job requests available at the moment.
+                      No invitations at the moment.
                     </div>
                   ) : (
-                    jobRequests.map((job) => (
+                    jobs.map((job) => (
                       <div
                         key={job.id}
                         className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0"
@@ -406,17 +405,65 @@ export function ProfessionalDashboard() {
                         <div>
                           <h3 className="font-semibold">{job.title}</h3>
                           <p className="text-sm text-gray-600">{job.location}</p>
-                          <p className="text-sm text-gray-500">{formatDate(job.created_at)}</p>
-                          <p className="text-sm font-medium">{formatCurrency(job.budget)}</p>
+                          <p className="text-sm text-gray-500">
+                            {formatDate(job.created_at)}
+                          </p>
+                          <p className="text-sm font-medium">{job.budgetRange}</p>
+                          <p className="text-sm text-gray-600">{job.trade_type}</p>
                         </div>
-                        <div className="flex items-center space-x-4">
-                          <Link
-                            to={`/professional/job/${job.id}`}
-                            className="px-4 py-2 bg-[#105298] text-white rounded-md hover:bg-[#0c3d72]"
+                        <div className="flex flex-col space-y-2">
+                          <button
+                            onClick={() => handleBookingAction(job.id, 'accepted')}
+                            disabled={actionLoading === job.id}
+                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
                           >
-                            View Details
-                          </Link>
+                            {actionLoading === job.id ? 'Processing...' : 'Accept'}
+                          </button>
+                          <button
+                            onClick={() => handleBookingAction(job.id, 'rejected')}
+                            disabled={actionLoading === job.id}
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {actionLoading === job.id ? 'Processing...' : 'Reject'}
+                          </button>
                         </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Jobs */}
+              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Recent Jobs</h2>
+                  <Link
+                    to="/professional/jobs"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    View all
+                  </Link>
+                </div>
+                <div className="space-y-4">
+                  {recentJobs.length === 0 ? (
+                    <div className="text-center text-gray-500 py-4">
+                      No jobs yet.
+                    </div>
+                  ) : (
+                    recentJobs.map((job) => (
+                      <div
+                        key={job.id}
+                        className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0"
+                      >
+                        <div>
+                          <h3 className="font-semibold">{job.title}</h3>
+                          <p className="text-sm text-gray-600">{job.location}</p>
+                          <p className="text-sm text-gray-500">
+                            {formatDate(job.created_at)}
+                          </p>
+                        </div>
+                        <span className="text-sm text-gray-500">{job.status}</span>
+                        <button>Mark as Completed</button>
                       </div>
                     ))
                   )}
@@ -427,13 +474,18 @@ export function ProfessionalDashboard() {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-bold">Recent Messages</h2>
-                  <Link to="/messages" className="text-[#105298] hover:text-[#0c3d72] text-sm font-medium">
+                  <Link
+                    to="/messages"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
                     View all
                   </Link>
                 </div>
                 <div className="space-y-4">
                   {messages.length === 0 ? (
-                    <div className="text-center text-gray-500 py-4">No messages yet.</div>
+                    <div className="text-center text-gray-500 py-4">
+                      No messages yet.
+                    </div>
                   ) : (
                     messages.map((message) => (
                       <div
@@ -445,8 +497,8 @@ export function ProfessionalDashboard() {
                             {message.sender.avatar_url ? (
                               <img
                                 src={message.sender.avatar_url}
-                                alt={message.sender.first_name}
-                                className="w-10 h-10 rounded-full"
+                                alt={`${message.sender.first_name}'s avatar`}
+                                className="w-10 h-10 rounded-full object-cover"
                               />
                             ) : (
                               message.sender.first_name[0]
@@ -463,7 +515,9 @@ export function ProfessionalDashboard() {
                             </p>
                           </div>
                         </div>
-                        <span className="text-sm text-gray-500">{formatDate(message.created_at)}</span>
+                        <span className="text-sm text-gray-500">
+                          {formatDate(message.created_at)}
+                        </span>
                       </div>
                     ))
                   )}
@@ -498,7 +552,9 @@ export function ProfessionalDashboard() {
                 <h2 className="text-xl font-bold mb-6">Recent Reviews</h2>
                 <div className="space-y-4">
                   {reviews.length === 0 ? (
-                    <div className="text-center text-gray-500 py-4">No reviews yet.</div>
+                    <div className="text-center text-gray-500 py-4">
+                      No reviews yet.
+                    </div>
                   ) : (
                     reviews.map((review) => (
                       <div
@@ -511,13 +567,15 @@ export function ProfessionalDashboard() {
                               <Star
                                 key={i}
                                 className={`w-5 h-5 ${
-                                  i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                                  i < review.rating
+                                    ? 'text-yellow-400'
+                                    : 'text-gray-300'
                                 }`}
                               />
                             ))}
                           </div>
                         </div>
-                        <p className="text-gray-600 text-sm">{review.comment}</p>
+                        <p className="text-gray-600 text-sm">{review.review_text}</p>
                         <p className="text-gray-500 text-sm mt-2">
                           {review.homeowner.first_name} {review.homeowner.last_name} •{' '}
                           {formatDate(review.created_at)}

@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
-import { Star, ThumbsUp, ThumbsDown, User, Calendar, MessageCircle } from 'lucide-react';
+import { Star, ThumbsUp, ThumbsDown, User, MessageCircle } from 'lucide-react';
 
 interface Review {
   id: string;
   professional_id: string;
-  professional_name: string;
-  job_title: string;
-  job_id: string;
-  rating: number;
-  comment: string;
-  created_at: string;
-  homeowner_name: string;
   homeowner_id: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
   helpful_count: number;
   unhelpful_count: number;
   user_feedback?: 'helpful' | 'unhelpful' | null;
@@ -21,6 +17,23 @@ interface Review {
     comment: string;
     created_at: string;
   } | null;
+  profiles: {
+    first_name: string;
+    last_name: string;
+  };
+  professionals: {
+    company_name: string;
+  };
+  jobs: {
+    title: string;
+  };
+}
+
+interface ProfessionalDetails {
+  company_name: string;
+  rating: number;
+  reviews_count: number;
+  rating_breakdown: { [key: number]: number };
 }
 
 const ReviewsAndRatings: React.FC = () => {
@@ -31,32 +44,45 @@ const ReviewsAndRatings: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('recent');
-  const [professionalDetails, setProfessionalDetails] = useState<{
-    name: string;
-    rating: number;
-    reviews_count: number;
-    rating_breakdown: {[key: number]: number};
-  } | null>(null);
-  const [currentUser, setCurrentUser] = useState<{
-    id: string;
-    type: 'homeowner';
-  } | null>(null);
+  const [professionalDetails, setProfessionalDetails] = useState<ProfessionalDetails | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; type: string } | null>(null);
 
   useEffect(() => {
-    fetchCurrentUser();
-    fetchProfessionalDetails();
-    fetchReviews();
+    const initializeData = async () => {
+      if (!professionalId) return;
+      
+      setLoading(true);
+      try {
+        await fetchCurrentUser();
+        await fetchProfessionalDetails();
+        await fetchReviews();
+      } catch (error) {
+        console.error('Error initializing data:', error);
+        setError('Failed to load reviews data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeData();
   }, [professionalId]);
 
   const fetchCurrentUser = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // In a real app, you would get user_type from your users table
-        setCurrentUser({
-          id: user.id,
-          type: 'homeowner'
-        });
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          setCurrentUser({
+            id: user.id,
+            type: profile.user_type
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching current user:', error);
@@ -64,47 +90,93 @@ const ReviewsAndRatings: React.FC = () => {
   };
 
   const fetchProfessionalDetails = async () => {
+    if (!professionalId) return;
+
     try {
-      // In a real implementation, this would fetch from Supabase
-      const { data, error } = await supabase
+      const { data: reviews, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('rating')
+        .eq('professional_id', professionalId);
+
+      if (reviewsError) throw reviewsError;
+
+      const { data: professional, error: professionalError } = await supabase
         .from('professionals')
-        .select('name, rating, reviews_count, rating_breakdown')
+        .select('company_name')
         .eq('id', professionalId)
         .single();
-      
-      if (error) throw error;
-      
-      setProfessionalDetails(data);
+
+      if (professionalError) throw professionalError;
+
+      if (reviews && professional) {
+        const rating_breakdown: { [key: number]: number } = {};
+        let total_rating = 0;
+
+        reviews.forEach(review => {
+          rating_breakdown[review.rating] = (rating_breakdown[review.rating] || 0) + 1;
+          total_rating += review.rating;
+        });
+
+        setProfessionalDetails({
+          company_name: professional.company_name,
+          rating: reviews.length ? total_rating / reviews.length : 0,
+          reviews_count: reviews.length,
+          rating_breakdown
+        });
+      }
     } catch (error) {
       console.error('Error fetching professional details:', error);
-      setError('Failed to load professional details');
+      throw error;
     }
   };
 
   const fetchReviews = async () => {
+    if (!professionalId) return;
+
     try {
-      setLoading(true);
-      // In a real implementation, this would fetch from Supabase
       const { data, error } = await supabase
         .from('reviews')
-        .select('*, professional_response(*)')
-        .eq('professional_id', professionalId)
-        .order('created_at', { ascending: false });
-      
+        .select(`
+          *,
+          profiles (first_name, last_name),
+          professionals (company_name),
+          jobs (title)
+        `)
+        .eq('professional_id', professionalId);
+
       if (error) throw error;
-      
-      setReviews(data || []);
+
+      if (data) {
+        const reviewsWithFeedback = await Promise.all(
+          data.map(async (review) => {
+            if (currentUser) {
+              const { data: feedback } = await supabase
+                .from('review_feedback')
+                .select('feedback_type')
+                .eq('review_id', review.id)
+                .eq('user_id', currentUser.id)
+                .single();
+
+              return {
+                ...review,
+                user_feedback: feedback?.feedback_type || null
+              };
+            }
+            return review;
+          })
+        );
+
+        setReviews(reviewsWithFeedback);
+      }
     } catch (error) {
       console.error('Error fetching reviews:', error);
-      setError('Failed to load reviews');
-    } finally {
-      setLoading(false);
+      throw error;
     }
   };
 
   const handleFeedback = async (reviewId: string, type: 'helpful' | 'unhelpful') => {
     if (!currentUser) {
-      navigate('/homeowner/login', { state: { redirect: `/homeowner/reviews/${professionalId}` } });
+      navigate('/login', { state: { redirect: `/reviews/${professionalId}` } });
       return;
     }
 
@@ -112,43 +184,38 @@ const ReviewsAndRatings: React.FC = () => {
       const reviewToUpdate = reviews.find(r => r.id === reviewId);
       if (!reviewToUpdate) return;
 
-      let updatedReviews = [...reviews];
+      const updatedReviews = [...reviews];
       const reviewIndex = updatedReviews.findIndex(r => r.id === reviewId);
-      
-      // Check if user has already given feedback
-      if (reviewToUpdate.user_feedback) {
-        // Remove previous feedback
-        if (reviewToUpdate.user_feedback === 'helpful') {
-          updatedReviews[reviewIndex].helpful_count -= 1;
-        } else {
-          updatedReviews[reviewIndex].unhelpful_count -= 1;
-        }
-        
-        // Add new feedback if it's different
-        if (reviewToUpdate.user_feedback !== type) {
-          updatedReviews[reviewIndex][type === 'helpful' ? 'helpful_count' : 'unhelpful_count'] += 1;
-          updatedReviews[reviewIndex].user_feedback = type;
-        } else {
-          // If clicking the same button, remove feedback
-          updatedReviews[reviewIndex].user_feedback = null;
-        }
-      } else {
-        // New feedback
-        updatedReviews[reviewIndex][type === 'helpful' ? 'helpful_count' : 'unhelpful_count'] += 1;
-        updatedReviews[reviewIndex].user_feedback = type;
-      }
-      
-      setReviews(updatedReviews);
-      
-      // In a real app, this would update the database
+
+      const { data: existingFeedback } = await supabase
+        .from('review_feedback')
+        .select('feedback_type')
+        .eq('review_id', reviewId)
+        .eq('user_id', currentUser.id)
+        .single();
+
+      const newFeedback = existingFeedback?.feedback_type === type ? null : type;
+
       await supabase
         .from('review_feedback')
         .upsert({
           review_id: reviewId,
           user_id: currentUser.id,
-          feedback_type: reviewToUpdate.user_feedback === type ? null : type
+          feedback_type: newFeedback
         });
-      
+
+      updatedReviews[reviewIndex] = {
+        ...updatedReviews[reviewIndex],
+        user_feedback: newFeedback,
+        helpful_count: type === 'helpful' 
+          ? (reviewToUpdate.helpful_count || 0) + (newFeedback ? 1 : -1)
+          : reviewToUpdate.helpful_count,
+        unhelpful_count: type === 'unhelpful'
+          ? (reviewToUpdate.unhelpful_count || 0) + (newFeedback ? 1 : -1)
+          : reviewToUpdate.unhelpful_count
+      };
+
+      setReviews(updatedReviews);
     } catch (error) {
       console.error('Error updating feedback:', error);
     }
@@ -157,53 +224,48 @@ const ReviewsAndRatings: React.FC = () => {
   const getFilteredReviews = () => {
     let filtered = [...reviews];
     
-    // Apply rating filter
     if (filter !== 'all') {
       const ratingFilter = parseInt(filter);
       filtered = filtered.filter(review => review.rating === ratingFilter);
     }
     
-    // Apply sorting
     filtered.sort((a, b) => {
-      if (sortBy === 'recent') {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      } else if (sortBy === 'highest') {
-        return b.rating - a.rating;
-      } else if (sortBy === 'lowest') {
-        return a.rating - b.rating;
-      } else if (sortBy === 'helpful') {
-        return b.helpful_count - a.helpful_count;
+      switch (sortBy) {
+        case 'recent':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'highest':
+          return b.rating - a.rating;
+        case 'lowest':
+          return a.rating - b.rating;
+        case 'helpful':
+          return (b.helpful_count || 0) - (a.helpful_count || 0);
+        default:
+          return 0;
       }
-      return 0;
     });
     
     return filtered;
   };
 
-  const renderStars = (rating: number) => {
-    return (
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`h-5 w-5 ${
-              star <= rating
-                ? 'text-yellow-400 fill-current'
-                : 'text-gray-300'
-            }`}
-          />
-        ))}
-      </div>
-    );
-  };
+  const renderStars = (rating: number) => (
+    <div className="flex">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`h-5 w-5 ${
+            star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+          }`}
+        />
+      ))}
+    </div>
+  );
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
-    }).format(date);
+    }).format(new Date(dateString));
   };
 
   if (error) {
@@ -224,22 +286,26 @@ const ReviewsAndRatings: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold">{professionalDetails.name}</h2>
+              <h2 className="text-2xl font-semibold">{professionalDetails.company_name}</h2>
               <div className="flex items-center mt-2">
-                <div className="flex">
-                  {renderStars(professionalDetails.rating)}
-                </div>
-                <span className="ml-2 text-2xl font-bold">{professionalDetails.rating.toFixed(1)}</span>
-                <span className="ml-2 text-gray-500">({professionalDetails.reviews_count} reviews)</span>
+                {renderStars(professionalDetails.rating)}
+                <span className="ml-2 text-2xl font-bold">
+                  {professionalDetails.rating.toFixed(1)}
+                </span>
+                <span className="ml-2 text-gray-500">
+                  ({professionalDetails.reviews_count} reviews)
+                </span>
               </div>
             </div>
             
-            <button
-              onClick={() => navigate('/homeowner/write-review/' + professionalId)}
-              className="mt-4 md:mt-0 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            >
-              Write a Review
-            </button>
+            {currentUser?.type === 'homeowner' && (
+              <button
+                onClick={() => navigate(`/write-review/${professionalId}`)}
+                className="mt-4 md:mt-0 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Write a Review
+              </button>
+            )}
           </div>
           
           <div className="mt-6 border-t pt-6">
@@ -261,9 +327,11 @@ const ReviewsAndRatings: React.FC = () => {
                       <div 
                         className="h-2 bg-blue-600 rounded-full" 
                         style={{ width: `${percentage}%` }}
-                      ></div>
+                      />
                     </div>
-                    <div className="w-10 text-right text-sm text-gray-500">{percentage}%</div>
+                    <div className="w-10 text-right text-sm text-gray-500">
+                      {percentage}%
+                    </div>
                   </div>
                 );
               })}
@@ -278,7 +346,9 @@ const ReviewsAndRatings: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 mt-4 md:mt-0">
             <div>
-              <label htmlFor="filter" className="block text-sm font-medium text-gray-700 mb-1">Filter</label>
+              <label htmlFor="filter" className="block text-sm font-medium text-gray-700 mb-1">
+                Filter
+              </label>
               <select
                 id="filter"
                 value={filter}
@@ -295,7 +365,9 @@ const ReviewsAndRatings: React.FC = () => {
             </div>
             
             <div>
-              <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-1">Sort by</label>
+              <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-1">
+                Sort by
+              </label>
               <select
                 id="sort"
                 value={sortBy}
@@ -313,7 +385,7 @@ const ReviewsAndRatings: React.FC = () => {
         
         {loading ? (
           <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
           </div>
         ) : getFilteredReviews().length === 0 ? (
           <div className="text-center py-10">
@@ -331,7 +403,9 @@ const ReviewsAndRatings: React.FC = () => {
                   </div>
                   
                   <div className="flex-1">
-                    <h4 className="font-medium">{review.homeowner_name}</h4>
+                    <h4 className="font-medium">
+                      {review.profiles.first_name} {review.profiles.last_name}
+                    </h4>
                     <div className="flex items-center mt-1">
                       {renderStars(review.rating)}
                       <span className="ml-2 text-sm text-gray-500">
@@ -339,13 +413,15 @@ const ReviewsAndRatings: React.FC = () => {
                       </span>
                     </div>
                     
-                    <div className="mt-2">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {review.job_title}
-                      </span>
-                    </div>
+                    {review.jobs?.title && (
+                      <div className="mt-2">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {review.jobs.title}
+                        </span>
+                      </div>
+                    )}
                     
-                    <p className="mt-3 text-gray-700">{review.comment}</p>
+                    <p className="mt-3 text-gray-700">{review.review_text}</p>
                     
                     <div className="mt-4 flex items-center space-x-6">
                       <button
@@ -357,7 +433,7 @@ const ReviewsAndRatings: React.FC = () => {
                         }`}
                       >
                         <ThumbsUp className="h-4 w-4" />
-                        <span>Helpful ({review.helpful_count})</span>
+                        <span>Helpful ({review.helpful_count || 0})</span>
                       </button>
                       
                       <button
@@ -369,7 +445,7 @@ const ReviewsAndRatings: React.FC = () => {
                         }`}
                       >
                         <ThumbsDown className="h-4 w-4" />
-                        <span>Not Helpful ({review.unhelpful_count})</span>
+                        <span>Not Helpful ({review.unhelpful_count || 0})</span>
                       </button>
                     </div>
                     
@@ -377,7 +453,9 @@ const ReviewsAndRatings: React.FC = () => {
                       <div className="mt-4 bg-gray-50 p-4 rounded-lg">
                         <div className="flex items-center mb-2">
                           <MessageCircle className="h-4 w-4 text-blue-600 mr-2" />
-                          <h5 className="font-medium">Response from {review.professional_name}</h5>
+                          <h5 className="font-medium">
+                            Response from {review.professionals.company_name}
+                          </h5>
                           <span className="ml-2 text-sm text-gray-500">
                             {formatDate(review.professional_response.created_at)}
                           </span>

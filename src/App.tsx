@@ -282,9 +282,9 @@ function App() {
                 <Route
                   path="/homeowner/reviews-and-ratings"
                   element={
-                    <ProtectedRoute requiredUserType="homeowner" redirectTo="/homeowner/login">
+                    // <ProtectedRoute requiredUserType="homeowner" redirectTo="/homeowner/login">
                       <ReviewsAndRatings />
-                    </ProtectedRoute>
+                    // </ProtectedRoute>
                   }
                 />
                 <Route

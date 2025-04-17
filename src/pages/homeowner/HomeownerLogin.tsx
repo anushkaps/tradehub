@@ -5,6 +5,8 @@ import { signInWithEmail } from '../../services/authService';
 import { checkIfEmailExists } from '../../services/emailService';
 import { toast } from 'react-toastify';
 import { Mail, Lock } from 'lucide-react';
+import { useUser } from '../../contexts/UserContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const HomeownerLogin = () => {
   const navigate = useNavigate();
@@ -12,6 +14,8 @@ const HomeownerLogin = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  // const { signIn } = useUser()
+  const { signIn } = useAuth(); 
 
   // Check if user is already logged in
   useEffect(() => {
@@ -30,29 +34,29 @@ const HomeownerLogin = () => {
   }, [navigate]);
 
   // Handle tokens from magic link or social login
-  useEffect(() => {
-    async function parseHashTokens() {
-      if (window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        if (accessToken && refreshToken) {
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) {
-            console.error('Error setting session from hash (HomeownerLogin):', error.message);
-          } else {
-            console.log('Session stored from hash (HomeownerLogin):', data);
-            navigate('/homeowner/dashboard');
-          }
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }
-    }
-    parseHashTokens();
-  }, [navigate]);
+  // useEffect(() => {
+  //   async function parseHashTokens() {
+  //     if (window.location.hash) {
+  //       const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  //       const accessToken = hashParams.get('access_token');
+  //       const refreshToken = hashParams.get('refresh_token');
+  //       if (accessToken && refreshToken) {
+  //         const { data, error } = await supabase.auth.setSession({
+  //           access_token: accessToken,
+  //           refresh_token: refreshToken,
+  //         });
+  //         if (error) {
+  //           console.error('Error setting session from hash (HomeownerLogin):', error.message);
+  //         } else {
+  //           console.log('Session stored from hash (HomeownerLogin):', data);
+  //           navigate('/homeowner/dashboard');
+  //         }
+  //         window.history.replaceState({}, document.title, window.location.pathname);
+  //       }
+  //     }
+  //   }
+  //   parseHashTokens();
+  // }, [navigate]);
 
   // Pre-check to confirm the email belongs to a homeowner
   const handlePreCheck = async (checkEmail: string) => {
@@ -77,11 +81,54 @@ const HomeownerLogin = () => {
   };
 
   // Full login with password
-  const handleLoginWithPassword = async (e: React.FormEvent) => {
+  // const handleLoginWithPassword = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setErrorMessage('');
+  //   setLoading(true);
+
+  //   try {
+  //     const { exists, userType } = await checkIfEmailExists(email);
+  //     if (!exists) {
+  //       toast.error('No account found. Please sign up.');
+  //       navigate('/homeowner/signup', { state: { email } });
+  //       return;
+  //     }
+  //     if (userType && userType !== 'homeowner') {
+  //       toast.error('This email is registered as a professional. Please use the professional login.');
+  //       navigate('/professional/login');
+  //       return;
+  //     }
+
+  //     const { data, error } = await signInWithEmail(email, password);
+  //     if (error) {
+  //       toast.error(error);
+  //       setErrorMessage(error);
+  //       return;
+  //     }
+
+  //     const sessionRes = await supabase.auth.getSession();
+  //     const user = sessionRes.data.session?.user;
+  //     const userMetadataType = user?.user_metadata?.user_type;
+
+  //     if (userMetadataType && userMetadataType !== 'homeowner') {
+  //       await supabase.auth.signOut();
+  //       throw new Error('Access denied: you are not a homeowner.');
+  //     }
+
+  //     toast.success('Login successful!');
+  //     navigate('/homeowner/dashboard', { replace: true });
+  //   } catch (err: any) {
+  //     toast.error(err.message);
+  //     setErrorMessage(err.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const handleLoginWithPassword = async (e: React.FormEvent)=>{
     e.preventDefault();
     setErrorMessage('');
     setLoading(true);
-
     try {
       const { exists, userType } = await checkIfEmailExists(email);
       if (!exists) {
@@ -95,21 +142,21 @@ const HomeownerLogin = () => {
         return;
       }
 
-      const { data, error } = await signInWithEmail(email, password);
+      const { data, error } = await signIn(email, password);
       if (error) {
         toast.error(error);
         setErrorMessage(error);
         return;
       }
 
-      const sessionRes = await supabase.auth.getSession();
-      const user = sessionRes.data.session?.user;
-      const userMetadataType = user?.user_metadata?.user_type;
+      // const sessionRes = await supabase.auth.getSession();
+      // const user = sessionRes.data.session?.user;
+      // const userMetadataType = user?.user_metadata?.user_type;
 
-      if (userMetadataType && userMetadataType !== 'homeowner') {
-        await supabase.auth.signOut();
-        throw new Error('Access denied: you are not a homeowner.');
-      }
+      // if (userMetadataType && userMetadataType !== 'homeowner') {
+      //   await supabase.auth.signOut();
+      //   throw new Error('Access denied: you are not a homeowner.');
+      // }
 
       toast.success('Login successful!');
       navigate('/homeowner/dashboard', { replace: true });
@@ -119,7 +166,7 @@ const HomeownerLogin = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   // OTP login flow
   const handleLoginWithOTP = async () => {

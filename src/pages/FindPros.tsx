@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MapPin, MessageSquare, Phone } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '../services/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 export function FindPros() {
   const [filters, setFilters] = useState({
@@ -10,8 +11,18 @@ export function FindPros() {
     rating: '',
     availability: ''
   });
+  
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [name]: value
+    }));
+  }
 
   interface Professional {
+    username: any;
+    id: string;
     services_offered: string;
     company_summary: string;
     city: string;
@@ -30,24 +41,41 @@ export function FindPros() {
 
   const [professionals, setProfessionals] = useState<Professional[]>([])
 
+  const navigate = useNavigate()
+
   useEffect(()=>{
     fetchProfessionals()
-  },[professionals])
+  },[filters])
 
   async function fetchProfessionals() {
-    try{
-      const {data,error} = await supabase.from("professionals").select("*,profile:profiles(*)").eq("company_status", "Active").order("created_at", { ascending: false });
-      if (error) {
-        throw error;
+    try {
+      let query = supabase
+        .from("professionals")
+        .select("*, profile:profiles(*)")
+        .eq("company_status", "Active");
+  
+      if (filters.service) {
+        query = query.ilike("trade_type", `%${filters.service}%`);
       }
-      if (data) {
-        setProfessionals(data);
+      if (filters.location) {
+        query = query.ilike("city", `%${filters.location}%`);
       }
-
-    }catch (error) {
-      console.error('Error fetching professionals:', error);
+      if (filters.rating) {
+        query = query.gte("rating", parseFloat(filters.rating));
+      }
+      if (filters.availability) {
+        query = query.eq("availability", filters.availability); // assuming a field like this exists
+      }
+  
+      const { data, error } = await query.order("created_at", { ascending: false });
+  
+      if (error) throw error;
+      if (data) setProfessionals(data);
+    } catch (error) {
+      console.error("Error fetching professionals:", error);
     }
   }
+  
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -174,8 +202,10 @@ export function FindPros() {
                     Call
                   </button>
                 </div>
-                <button className="px-4 py-2 bg-[#e20000] text-white rounded-md hover:bg-[#cc0000]">
-                  Request Quote
+                <button onClick={
+                  () => navigate(`/p/${pro.username}`)
+                } className="px-4 py-2 bg-[#e20000] text-white rounded-md hover:bg-[#cc0000]">
+                  View Profile
                 </button>
               </div>
             </div>
