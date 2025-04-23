@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '../../services/supabaseClient';
 import { toast } from 'react-toastify';
+import { set } from 'date-fns';
 
 interface Review {
   id: string;
@@ -68,13 +69,25 @@ export function ProfessionalDashboard() {
 
       const { data: bookingData } = await supabase
         .from('bookings')
-        .select(`job_id`)
+        .select(`job_id, userId`)
         .eq('id', bookingId)
         .single();
       if (!bookingData) throw new Error('Booking not found');
 
       const { error: jobError } = await supabase.from('jobs').update({status: 'ongoing'}).eq('id', bookingData.job_id);
       if (jobError) throw jobError;
+
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert([{
+          user_id: bookingData.userId,
+          message: `Your booking has been ${status === 'accepted' ? 'accepted' : 'rejected'}.`,
+          type: 'job_update',
+          action_url: `/professional/job/${bookingData.job_id}`,
+          read: false
+        }])
+
+      if (notificationError) throw notificationError;
 
       // Update local state to reflect the change
       setJobs(prevJobs =>
@@ -89,6 +102,41 @@ export function ProfessionalDashboard() {
       setActionLoading(null);
     }
   };
+
+  const handleComplete = async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ status: 'completed' })
+        .eq('id', jobId); // Replace 'job_id' with the actual job ID
+
+      if (error) throw error;
+
+      setJobs(prevJobs =>prevJobs.map(job => (job.id === jobId ? { ...job, status: 'completed' } : job)))
+
+      const { data: jobsDatas } = await supabase
+        .from('jobs')
+        .select('homeowner_id')
+        .eq('id', jobId)
+        .single();
+
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert([{
+          user_id: jobsDatas?.homeowner_id || '',
+          message: `Your job has been marked as completed.`,
+          type: 'job_update',
+          action_url: `/professional/job/${jobId}`,
+          read: false
+        }])
+      if (notificationError) throw notificationError;
+
+      toast.success('Job marked as completed!');
+    } catch (error) {
+      console.error('Error marking job as completed:', error);
+      toast.error('Failed to mark job as completed.');
+    }
+  }
 
   const fetchStats = async () => {
     try {
@@ -463,7 +511,7 @@ export function ProfessionalDashboard() {
                           </p>
                         </div>
                         <span className="text-sm text-gray-500">{job.status}</span>
-                        <button>Mark as Completed</button>
+                        <button onClick={()=>handleComplete(job.id)} className='bg-blue-600 text-white py-4 px-2 rounded-md'>Mark as Completed</button>
                       </div>
                     ))
                   )}

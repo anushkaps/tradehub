@@ -45,7 +45,10 @@ const ReviewsAndRatings: React.FC = () => {
   const [filter, setFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('recent');
   const [professionalDetails, setProfessionalDetails] = useState<ProfessionalDetails | null>(null);
-  const [currentUser, setCurrentUser] = useState<{ id: string; type: string } | null>(null);
+  // const [currentUser, setCurrentUser] = useState<{ id: string; type: string } | null>(null);
+  const currentUser = {
+    id: localStorage.getItem('user_id'),
+  }
 
   useEffect(() => {
     const initializeData = async () => {
@@ -53,7 +56,7 @@ const ReviewsAndRatings: React.FC = () => {
       
       setLoading(true);
       try {
-        await fetchCurrentUser();
+        // await fetchCurrentUser();
         await fetchProfessionalDetails();
         await fetchReviews();
       } catch (error) {
@@ -67,27 +70,27 @@ const ReviewsAndRatings: React.FC = () => {
     initializeData();
   }, [professionalId]);
 
-  const fetchCurrentUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('id', user.id)
-          .single();
+  // const fetchCurrentUser = async () => {
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (user) {
+  //       const { data: profile } = await supabase
+  //         .from('profiles')
+  //         .select('user_type')
+  //         .eq('id', user.id)
+  //         .single();
 
-        if (profile) {
-          setCurrentUser({
-            id: user.id,
-            type: profile.user_type
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-    }
-  };
+  //       if (profile) {
+  //         setCurrentUser({
+  //           id: user.id,
+  //           type: profile.user_type
+  //         });
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching current user:', error);
+  //   }
+  // };
 
   const fetchProfessionalDetails = async () => {
     if (!professionalId) return;
@@ -298,7 +301,7 @@ const ReviewsAndRatings: React.FC = () => {
               </div>
             </div>
             
-            {currentUser?.type === 'homeowner' && (
+            {(
               <button
                 onClick={() => navigate(`/write-review/${professionalId}`)}
                 className="mt-4 md:mt-0 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"

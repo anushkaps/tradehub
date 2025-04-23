@@ -19,6 +19,17 @@ const Notifications: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  // const [userId, setUserId] = useState<string | null>(null);
+
+  // useEffect(() => {
+  //   const fetchUserId = async () => {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     setUserId(user?.id || null);
+  //   };
+  //   fetchUserId();
+  // }, []);
+
+  const userId = localStorage.getItem('user_id') || null; // Replace with actual user ID retrieval logic
   
   useEffect(() => {
     fetchNotifications();
@@ -34,7 +45,7 @@ const Notifications: React.FC = () => {
         const newNotification = payload.new as Notification;
         
         // Check if the notification is for the current user
-        if (newNotification.user_id === currentUser) {
+        if (newNotification.user_id === userId) {
           setNotifications(prev => [newNotification, ...prev]);
         }
       })
@@ -45,27 +56,29 @@ const Notifications: React.FC = () => {
     };
   }, []);
   
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  // const [currentUser, setCurrentUser] = useState<string | null>(null);
   
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       
-      const { data: { user } } = await supabase.auth.getUser();
+      // const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      // if (!user) {
+      //   throw new Error('User not authenticated');
+      // }
       
-      setCurrentUser(user.id);
+      // setCurrentUser(user.id);
       
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
+
+      console.log('Fetched notifications:', data);
       
       setNotifications(data || []);
     } catch (error) {
@@ -106,7 +119,7 @@ const Notifications: React.FC = () => {
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('read', false);
       
       if (error) throw error;
@@ -321,7 +334,7 @@ const Notifications: React.FC = () => {
                     </div>
                     <div className="ml-4 flex-1">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-medium text-gray-900">{notification.title}</h3>
+                        <h3 className="text-sm font-medium text-gray-900">{notification.type}</h3>
                         <p className="text-xs text-gray-500">{formatDate(notification.created_at)}</p>
                       </div>
                       <p className="mt-1 text-sm text-gray-600">{notification.message}</p>

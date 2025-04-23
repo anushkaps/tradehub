@@ -1,6 +1,6 @@
 // src/components/Navigation.tsx
 import React, { useState } from "react";
-import { Menu, X, User, LogOut } from "lucide-react";
+import { Menu, X, User, LogOut, Bell } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import logoImage from "../assets/logo-image.png";
@@ -107,6 +107,11 @@ export function Navigation() {
                   className="text-gray-700 hover:text-[#105298]"
                 >
                   Profile
+                </Link>
+                <Link
+                to={`/${currentUserType}/notifications`}
+                className="text-gray-700 hover:text-[#105298]">
+                  <Bell className="h-4 w-4 mr-2" />
                 </Link>
                 <button
                   onClick={handleLogout}

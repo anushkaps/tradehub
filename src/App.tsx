@@ -106,6 +106,7 @@ import { CookiePreferences } from './pages/CookiePreferences';
 import { PublicHomeownerProfile } from './pages/profiles/PublicHomeownerProfile';
 import { PublicProfessionalProfile } from './pages/profiles/PublicProfessionalProfile';
 import Booking from './pages/professional/Booking';
+import WriteReview from './pages/homeowner/WriteReview';
 
 // Updated AdminProtectedRoute using import.meta.env for Vite and a correct URL parameter
 function AdminProtectedRoute({ children }: { children: JSX.Element }) {
@@ -280,7 +281,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/homeowner/reviews-and-ratings"
+                  path="/homeowner/reviews-and-ratings/:professionalId"
                   element={
                     // <ProtectedRoute requiredUserType="homeowner" redirectTo="/homeowner/login">
                       <ReviewsAndRatings />
@@ -298,9 +299,9 @@ function App() {
                 <Route
                   path="/homeowner/notifications"
                   element={
-                    <ProtectedRoute requiredUserType="homeowner" redirectTo="/homeowner/login">
+                    // <ProtectedRoute requiredUserType="homeowner" redirectTo="/homeowner/login">
                       <Notifications />
-                    </ProtectedRoute>
+                    // </ProtectedRoute>
                   }
                 />
                 <Route
@@ -311,6 +312,11 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/write-review/:professionalId"
+                  element={
+                      <WriteReview />
+                  }/>
 
                 {/* Professional Auth */}
                 <Route path="/professional/signup" element={<ProfessionalSignUp />} />

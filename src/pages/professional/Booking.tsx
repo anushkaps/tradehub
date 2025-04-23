@@ -19,6 +19,8 @@ function Booking() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const userId = localStorage.getItem('user_id') || '';
+
   const { proid } = useParams<{ proid: string }>();
 
   const times = Array.from({ length: 24 }, (_, i) => {
@@ -67,7 +69,8 @@ function Booking() {
             job_id: selectedJob,
             date_time: dateTime.toISOString(),
             notes,
-            status: 'pending'
+            status: 'pending',
+            userId: userId,
           }
         ]);
 
