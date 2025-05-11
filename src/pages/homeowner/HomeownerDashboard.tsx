@@ -1,10 +1,10 @@
 // src/pages/homeowner/HomeownerDashboard.tsx
 
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
-import { useUser } from '../../contexts/UserContext';
-import { supabase } from '../../services/supabaseClient';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { useUser } from "../../contexts/UserContext";
+import { supabase } from "../../services/supabaseClient";
 
 interface DashboardStats {
   totalJobs: number;
@@ -41,28 +41,27 @@ export function HomeownerDashboard() {
     completedJobs: 0,
     pendingBids: 0,
   });
-  const userId = localStorage.getItem('user_id');
+  const userId = localStorage.getItem("user_id");
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
   const [recentMessages, setRecentMessages] = useState<RecentMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
 
   const fetchUserProfile = async () => {
-    const { data, error } = await supabase.from('profiles')
-      .select('first_name, last_name, avatar_url')
-      .eq('id', userId)
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("first_name, last_name, avatar_url")
+      .eq("id", userId)
       .single();
     if (error) {
-      console.error('Error fetching user profile:', error);
+      console.error("Error fetching user profile:", error);
       return null;
     }
-    console.log('User profile:', data);
+    console.log("User profile:", data);
     setProfile(data);
-  }
-  
+  };
 
   useEffect(() => {
-    
     // console.log("UserId: "+userId)
     // if (!user) return;
     // if (!profile) return;
@@ -72,9 +71,9 @@ export function HomeownerDashboard() {
       try {
         // 1. Fetch all jobs for stats
         const { data: jobsData, error: jobsError } = await supabase
-          .from('jobs')
-          .select('id, status')
-          .eq('homeowner_id', userId);
+          .from("jobs")
+          .select("id, status")
+          .eq("homeowner_id", userId);
 
         if (jobsError) throw jobsError;
 
@@ -82,17 +81,17 @@ export function HomeownerDashboard() {
         const totalJobs = jobsData?.length || 0;
         const activeJobs =
           jobsData?.filter(
-            (job) => job.status === 'open' || job.status === 'in_progress'
+            (job) => job.status === "open" || job.status === "in_progress"
           ).length || 0;
         const completedJobs =
-          jobsData?.filter((job) => job.status === 'completed').length || 0;
+          jobsData?.filter((job) => job.status === "completed").length || 0;
 
         // 2. Fetch pending bids count
         const { count: pendingBids, error: bidsError } = await supabase
-          .from('bids')
-          .select('id', { count: 'exact' })
-          .eq('status', 'pending')
-          .in('job_id', jobsData?.map((job) => job.id) || []);
+          .from("bids")
+          .select("id", { count: "exact" })
+          .eq("status", "pending")
+          .in("job_id", jobsData?.map((job) => job.id) || []);
 
         if (bidsError) throw bidsError;
 
@@ -107,35 +106,40 @@ export function HomeownerDashboard() {
         //    NOTE: 'bids(count)' returns an array of objects like [{ count: number }]
         //    We'll transform that array to a single number.
         const { data: recentJobsData, error: recentJobsError } = await supabase
-          .from('jobs')
-          .select(`
+          .from("jobs")
+          .select(
+            `
             id,
             title,
             status,
             created_at,
             bids(count)
-          `)
-          .eq('homeowner_id', userId)
-          .order('created_at', { ascending: false })
+          `
+          )
+          .eq("homeowner_id", userId)
+          .order("created_at", { ascending: false })
           .limit(5);
 
         if (recentJobsError) throw recentJobsError;
 
         // Transform the array to get bids_count as a number
-        const transformedJobs: RecentJob[] = (recentJobsData || []).map((job: any) => {
-          const bidsCountArr = job.bids || [];
-          // If there's at least one object in the array, get .count, else 0
-          const count = bidsCountArr.length > 0 && bidsCountArr[0].count
-            ? bidsCountArr[0].count
-            : 0;
-          return {
-            id: job.id,
-            title: job.title,
-            status: job.status,
-            created_at: job.created_at,
-            bids_count: count,
-          };
-        });
+        const transformedJobs: RecentJob[] = (recentJobsData || []).map(
+          (job: any) => {
+            const bidsCountArr = job.bids || [];
+            // If there's at least one object in the array, get .count, else 0
+            const count =
+              bidsCountArr.length > 0 && bidsCountArr[0].count
+                ? bidsCountArr[0].count
+                : 0;
+            return {
+              id: job.id,
+              title: job.title,
+              status: job.status,
+              created_at: job.created_at,
+              bids_count: count,
+            };
+          }
+        );
 
         setRecentJobs(transformedJobs);
 
@@ -159,41 +163,45 @@ export function HomeownerDashboard() {
         //   .order('created_at', { ascending: false })
         //   .limit(5);
         const { data: messagesData, error: messagesError } = await supabase
-          .from('messages')
-          .select(`
+          .from("messages")
+          .select(
+            `
             id,
             sender_id,
             content,
             created_at
-          `)
-          .eq('receiver_id', userId)
-          .order('created_at', { ascending: false })
+          `
+          )
+          .eq("receiver_id", userId)
+          .order("created_at", { ascending: false })
           .limit(5);
 
         if (messagesError) throw messagesError;
 
-        const transformedMessages: RecentMessage[] = (messagesData || []).map((msg: any) => {
-          // Check if 'sender' is an array
-          const singleSender = Array.isArray(msg.sender)
-            ? msg.sender[0]
-            : msg.sender;
+        const transformedMessages: RecentMessage[] = (messagesData || []).map(
+          (msg: any) => {
+            // Check if 'sender' is an array
+            const singleSender = Array.isArray(msg.sender)
+              ? msg.sender[0]
+              : msg.sender;
 
-          return {
-            id: msg.id,
-            sender_id: msg.sender_id,
-            content: msg.content,
-            created_at: msg.created_at,
-            sender: {
-              first_name: singleSender?.first_name || '',
-              last_name: singleSender?.last_name || '',
-              avatar_url: singleSender?.avatar_url,
-            },
-          };
-        });
+            return {
+              id: msg.id,
+              sender_id: msg.sender_id,
+              content: msg.content,
+              created_at: msg.created_at,
+              sender: {
+                first_name: singleSender?.first_name || "",
+                last_name: singleSender?.last_name || "",
+                avatar_url: singleSender?.avatar_url,
+              },
+            };
+          }
+        );
 
         setRecentMessages(transformedMessages);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setLoading(false);
       }
@@ -210,16 +218,16 @@ export function HomeownerDashboard() {
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'open':
-        return 'bg-green-100 text-green-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-purple-100 text-purple-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
+      case "open":
+        return "bg-green-100 text-green-800";
+      case "in_progress":
+        return "bg-blue-100 text-blue-800";
+      case "completed":
+        return "bg-purple-100 text-purple-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -227,13 +235,16 @@ export function HomeownerDashboard() {
     <div className="min-h-screen bg-gray-50">
       <Helmet>
         <title>Homeowner Dashboard - TradeHub24</title>
-        <meta name="description" content="Manage your home improvement projects, track job progress, and communicate with professionals all in one place." />
+        <meta
+          name="description"
+          content="Manage your home improvement projects, track job progress, and communicate with professionals all in one place."
+        />
       </Helmet>
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold">
-              Welcome back, {profile?.first_name || 'Homeowner'}
+              Welcome back, {profile?.first_name || "Homeowner"}
             </h1>
             <p className="text-gray-600">
               Here's what's happening with your projects
@@ -322,7 +333,9 @@ export function HomeownerDashboard() {
                   </div>
                   <div>
                     <p className="text-gray-500 text-sm">Completed Jobs</p>
-                    <p className="text-2xl font-semibold">{stats.completedJobs}</p>
+                    <p className="text-2xl font-semibold">
+                      {stats.completedJobs}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -345,7 +358,9 @@ export function HomeownerDashboard() {
                   </div>
                   <div>
                     <p className="text-gray-500 text-sm">Pending Bids</p>
-                    <p className="text-2xl font-semibold">{stats.pendingBids}</p>
+                    <p className="text-2xl font-semibold">
+                      {stats.pendingBids}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -356,7 +371,10 @@ export function HomeownerDashboard() {
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">Recent Jobs</h2>
-                  <Link to="/homeowner/my-jobs" className="text-blue-500 hover:text-blue-700">
+                  <Link
+                    to="/homeowner/my-jobs"
+                    className="text-blue-500 hover:text-blue-700"
+                  >
                     View All
                   </Link>
                 </div>
@@ -381,7 +399,7 @@ export function HomeownerDashboard() {
                             job.status
                           )}`}
                         >
-                          {job.status.replace('_', ' ')}
+                          {job.status.replace("_", " ")}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm text-gray-500">
@@ -399,9 +417,12 @@ export function HomeownerDashboard() {
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">Recent Messages</h2>
-                  <Link to="/messages" className="text-blue-500 hover:text-blue-700">
+                  {/* <Link
+                    to="/homeowner/messages"
+                    className="text-blue-500 hover:text-blue-700"
+                  >
                     View All
-                  </Link>
+                  </Link> */}
                 </div>
               </div>
               <div className="divide-y">
@@ -427,7 +448,8 @@ export function HomeownerDashboard() {
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
                             <p className="font-medium">
-                              {message.sender.first_name} {message.sender.last_name}
+                              {message.sender.first_name}{" "}
+                              {message.sender.last_name}
                             </p>
                             <span className="text-xs text-gray-500">
                               {formatDate(message.created_at)}

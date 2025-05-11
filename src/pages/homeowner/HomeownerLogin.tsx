@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
-import { signInWithEmail } from '../../services/authService';
-import { checkIfEmailExists } from '../../services/emailService';
-import { toast } from 'react-toastify';
-import { Mail, Lock } from 'lucide-react';
-import { useUser } from '../../contexts/UserContext';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../../services/supabaseClient";
+import { signInWithEmail } from "../../services/authService";
+import { checkIfEmailExists } from "../../services/emailService";
+import { toast } from "react-toastify";
+import { Mail, Lock } from "lucide-react";
+import { useUser } from "../../contexts/UserContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 const HomeownerLogin = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
   // const { signIn } = useUser()
-  const { signIn } = useAuth(); 
+  const { signIn } = useAuth();
 
   // Check if user is already logged in
   useEffect(() => {
@@ -25,8 +25,8 @@ const HomeownerLogin = () => {
       } = await supabase.auth.getSession();
       if (session) {
         const userType = session.user.user_metadata?.user_type;
-        if (userType === 'homeowner') {
-          navigate('/homeowner/dashboard');
+        if (userType === "homeowner") {
+          navigate("/homeowner/dashboard");
         }
       }
     };
@@ -63,18 +63,22 @@ const HomeownerLogin = () => {
     try {
       const { exists, userType } = await checkIfEmailExists(checkEmail);
       if (!exists) {
-        toast.error('No account found. Please sign up.');
-        navigate('/homeowner/signup', { state: { email: checkEmail } });
+        toast.error("No account found. Please sign up.");
+        navigate("/homeowner/signup", { state: { email: checkEmail } });
         return false;
       }
-      if (userType !== 'homeowner') {
-        toast.error('Email belongs to a professional account. Use professional login.');
-        setErrorMessage('This email is registered as a professional. Please use the professional login.');
+      if (userType !== "homeowner") {
+        toast.error(
+          "Email belongs to a professional account. Use professional login."
+        );
+        setErrorMessage(
+          "This email is registered as a professional. Please use the professional login."
+        );
         return false;
       }
       return true;
     } catch (err: any) {
-      toast.error(err.message || 'Error checking email');
+      toast.error(err.message || "Error checking email");
       setErrorMessage(err.message);
       return false;
     }
@@ -125,60 +129,62 @@ const HomeownerLogin = () => {
   //   }
   // };
 
-  const handleLoginWithPassword = async (e: React.FormEvent)=>{
+  const handleLoginWithPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorMessage("");
     setLoading(true);
+
     try {
+      // 1) Pre-check email exists + is homeowner
       const { exists, userType } = await checkIfEmailExists(email);
       if (!exists) {
-        toast.error('No account found. Please sign up.');
-        navigate('/homeowner/signup', { state: { email } });
+        toast.error("No account found. Please sign up.");
+        navigate("/homeowner/signup", { state: { email } });
         return;
       }
-      if (userType && userType !== 'homeowner') {
-        toast.error('This email is registered as a professional. Please use the professional login.');
-        navigate('/professional/login');
-        return;
-      }
-
-      const { data, error } = await signIn(email, password);
-      if (error) {
-        toast.error(error);
-        setErrorMessage(error);
+      if (userType !== "homeowner") {
+        toast.error(
+          "This email is registered as a professional. Please use the professional login."
+        );
+        navigate("/professional/login");
         return;
       }
 
-      // const sessionRes = await supabase.auth.getSession();
-      // const user = sessionRes.data.session?.user;
-      // const userMetadataType = user?.user_metadata?.user_type;
+      // 2) Attempt sign-in
+      const response = await signIn(email, password);
 
-      // if (userMetadataType && userMetadataType !== 'homeowner') {
-      //   await supabase.auth.signOut();
-      //   throw new Error('Access denied: you are not a homeowner.');
-      // }
+      // 3) If anything went wrong, show “Password mismatched.”
+      if (!response || response.error) {
+        const msg = "Password mismatched.";
+        toast.error(msg);
+        setErrorMessage(msg);
+        return;
+      }
 
-      toast.success('Login successful!');
-      navigate('/homeowner/dashboard', { replace: true });
+      // 4) Success!
+      toast.success("Login successful!");
+      navigate("/homeowner/dashboard", { replace: true });
     } catch (err: any) {
-      toast.error(err.message);
-      setErrorMessage(err.message);
+      // Any unexpected error → treat as mismatch
+      const msg = "Password mismatched.";
+      toast.error(msg);
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   // OTP login flow
   const handleLoginWithOTP = async () => {
-    setErrorMessage('');
+    setErrorMessage("");
     if (!email) {
-      toast.error('Please enter your email');
+      toast.error("Please enter your email");
       return;
     }
     try {
       const canProceed = await handlePreCheck(email);
       if (!canProceed) return;
-      navigate('/homeowner/login-otp', { state: { email } });
+      navigate("/homeowner/login-otp", { state: { email } });
     } catch (err: any) {
       toast.error(err.message);
       setErrorMessage(err.message);
@@ -187,15 +193,15 @@ const HomeownerLogin = () => {
 
   // Google OAuth login
   const handleLoginWithGoogle = async () => {
-    setErrorMessage('');
+    setErrorMessage("");
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
           redirectTo: `${window.location.origin}/homeowner/dashboard`,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
+            access_type: "offline",
+            prompt: "consent",
           },
         },
       });
@@ -224,7 +230,10 @@ const HomeownerLogin = () => {
 
           <form className="space-y-6" onSubmit={handleLoginWithPassword}>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Email address
               </label>
               <div className="mt-1 relative">
@@ -245,7 +254,10 @@ const HomeownerLogin = () => {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Password
               </label>
               <div className="mt-1 relative">
@@ -273,7 +285,10 @@ const HomeownerLogin = () => {
                   type="checkbox"
                   className="h-4 w-4 text-[#105298] focus:ring-[#105298] border-gray-300 rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                <label
+                  htmlFor="remember-me"
+                  className="ml-2 block text-sm text-gray-900"
+                >
                   Remember me
                 </label>
               </div>
@@ -296,7 +311,7 @@ const HomeownerLogin = () => {
                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#105298]
                   disabled:opacity-50"
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                {loading ? "Signing in..." : "Sign in"}
               </button>
             </div>
           </form>
@@ -307,7 +322,9 @@ const HomeownerLogin = () => {
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-2 bg-white text-gray-500">
+                  Or continue with
+                </span>
               </div>
             </div>
           </div>
@@ -339,8 +356,11 @@ const HomeownerLogin = () => {
           </div>
 
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/homeowner/signup" className="font-medium text-[#105298] hover:text-blue-700">
+            Don't have an account?{" "}
+            <Link
+              to="/homeowner/signup"
+              className="font-medium text-[#105298] hover:text-blue-700"
+            >
               Sign up
             </Link>
           </p>
